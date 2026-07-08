@@ -1,0 +1,10 @@
+# Enviroment
+.env
+dev
+
+# Runtime Dir
+dist
+build
+temp
+storage
+*.db

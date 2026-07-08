@@ -1,0 +1,6 @@
+switch("outdir", "build")
+switch("p", "src")
+switch("p", "src/handlers")
+switch("define", "usestd")
+switch("define", "ssl")
+switch("deepcopy", "on")
