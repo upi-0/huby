@@ -171,7 +171,11 @@ proc replace(rec: UploadRequestRecord; key: string; fileLength: int) : Future[Se
       let deleteProcess = deleteFile(file.resolve.get.hfUrl)
       deleteProcess.addCallback(afterDelete)
 
-  return some(new FirstResponse, 204)
+  return some(FirstResponse(
+    signature: rec.signature,
+    size: fileLength,
+    url: "/.huby/file/" & rec.signature & "/resolve"
+  ), 202)
 
 proc upload*(
     rec: UploadRequestRecord;
@@ -224,7 +228,7 @@ proc upload*(
         signature: rec.signature,
         size: fileLength,
         url: "/.huby/file/" & file.signature & "/resolve"
-      ), 201)
+      ), 202)
 
 proc delete*(key: string) : Future[ServiceValue[string]] {.async.} =
   var file = new FileModel
