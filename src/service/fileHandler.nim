@@ -156,6 +156,9 @@ proc replace(rec: UploadRequestRecord; key: string; fileLength: int) : Future[Se
         file.isUploaded = true
         file.signature = rec.signature
         file.size = fileLength div 1024
+        file.ext = rec.ext
+        file.address = rec.address
+        file.repo = getEnv("HF_REPO")
         
         conn.update(file)
 
