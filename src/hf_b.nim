@@ -2,7 +2,14 @@ import
   prologue, strutils
 
 import
-  urls/[wpolicy, auth, token, file], middleware/[cors, form],
+  urls/[
+    wpolicy,
+    auth,
+    token,
+    file,
+    access
+  ],
+  middleware/[cors, form],
   env
 
 import
@@ -40,6 +47,9 @@ block setRoute:
   )
   app.addRoute(
     fileUrls, "/.huby/file"
+  )
+  app.addRoute(
+    accessUrls, "/.huby/storage"
   )
 
 app.run()

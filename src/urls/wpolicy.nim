@@ -1,3 +1,5 @@
+{.deprecated.}
+
 import base
 import controller/wpolicy
 import prologue

@@ -4,7 +4,7 @@
 ##    - IP
 
 import
-  nimcrypto, std/sysrand, base64, uri
+  nimcrypto, std/sysrand, base64, hmac, marshal
 
 import
   json, times, strutils
@@ -21,6 +21,15 @@ type
 
   TargetPolicy* = ref object
     request*, key*: string
+
+  MetaTuple* = ref object of RootObj # JANGAN EXPORT SMUA
+    key*: string
+    ip*: string
+    exp*: int
+    config*: JsonNode
+
+const
+  Key = "syafitri-jendal-4f6e"
 
 var
   iv*: ptr array[16, byte]
@@ -70,7 +79,7 @@ proc generatePolicy(policy: UploadPolicy) : string =
     "exp": (getTime() + 3.hours).toUnix()
   })
 
-proc generateUrl*(ip, ua, key: string; replace = false) : ServiceValue[string] =
+proc generateUrl*(ip, ua, key: string; replace = false) : ServiceValue[string] {.deprecated.} =
   if key == "":
     return result.none(400, "`key` as `k` is required.")
 
@@ -89,7 +98,7 @@ proc generateUrl*(ip, ua, key: string; replace = false) : ServiceValue[string] =
 
   result = some "/.huby/wpolicy?p=" & enc.encode
 
-proc resolvePolicy*(ip, ua, requestedPolicyPayload: string) : ServiceValue[TargetPolicy] =
+proc resolvePolicy*(ip, ua, requestedPolicyPayload: string) : ServiceValue[TargetPolicy] {.deprecated.} =
   var
     expired = (getTime())
     policyJson: string
@@ -118,15 +127,28 @@ proc resolvePolicy*(ip, ua, requestedPolicyPayload: string) : ServiceValue[Targe
   except KeyError, AssertionDefect:
     return result.none(403, "Invalid hash.")
 
-proc main() =
-  let
-    pesanRahasia = generateUrl("11.22.33.44", "Mozilla Firefox.", "moze:xxx:rijal")
-    po = resolvePolicy("11.22.33.44", "Mozilla Firefox.", pesanRahasia.get.replace("/.huby?p="))
-  
-  try:
-    echo pesanRahasia.get
-    echo po.get.request
+proc resolveMeta*(metaString, hash, action: string): ServiceValue[MetaTuple] =
+  var
+    meta = new MetaTuple
+    data: array[5, string]
 
-  except AssertionDefect:
-    echo po.status
-    echo po.errorReason  
+  let
+    calculatedHash = hmac_sha256(Key, metaString & action).toHex()
+
+  if hash.len < 10 or (not calculatedHash.startsWith hash):
+    return result.none(403, "Invalid Hash")    
+
+  try:
+    data = to[array[5, string]](metaString)
+    meta.key = data[0]
+    meta.ip = data[1]
+    meta.exp = parseInt data[2]
+    meta.config = parseJson data[3]
+
+    if meta.exp > getTime().toUnix():
+      return some(meta, 200)
+
+    result.none(419, "Expired")
+
+  except Exception:
+    return result.none(400, "Invalid Request Format")
