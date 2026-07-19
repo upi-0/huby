@@ -9,6 +9,9 @@ proc normalize*() : HandlerAsync =
       return ctx.send("", Http403)
 
     else:
-      await ctx.switch()
+      try:
+        await ctx.switch()
+      except ExpectedExit:
+        discard  
 
   result = handler
