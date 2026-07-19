@@ -8,6 +8,8 @@ type
   IpUa* = tuple
     ip, ua: string
 
+  ExpectedExit* = object of HttpError
+
 proc json*(ctx: Context) =
   ctx.response.headers["Content-Type"] = @["application/json"]
 
@@ -39,7 +41,11 @@ proc send*[T: string | JsonNode](ctx: Context; body: T, code = Http200) {.async.
 
     text = $illall  
 
-  ctx.response.body = text
+  ctx.response.body = ""
+
+  if not (ctx.request.reqMethod == HttpOptions):
+    ctx.response.body = text
+
   ctx.response.code = code
 
   return
@@ -83,3 +89,18 @@ proc ipua*(ctx: Context) : Future[IpUa] {.async.} =
     ip = headers["x-forwarded-for"][0]
 
   return (ip, ua)
+
+# proc responseNow*(ctx: Context) : Future[void] {.async.} =
+  # await ctx.send()
+
+proc done =
+  raise newException(ExpectedExit, "Stop") 
+
+template `??`*[T](sv: ServiceValue[T]) =
+  if ctx.request.reqMethod == HttpOptions:
+    await ctx.send("", HttpCode(sv.status))
+    done()  
+
+  if sv.isNone:
+    await ctx.send sv
+    done()   
