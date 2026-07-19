@@ -24,7 +24,7 @@ proc uploadFile*(ctx: Context) {.async.} =
 
 proc lookFile*(ctx: Context) {.async.} = 
   ctx.json()
-  ctx.send look ctx.getPathParams("key")
+  ctx.send look ctx.getPathParams("signature")
 
 proc resolveFile*(ctx: Context) {.async.} =
   let
@@ -61,3 +61,8 @@ proc listFiles*(ctx: Context) {.async.} =
 proc listFilesDeleted*(ctx: Context) {.async.} =
   ctx.json()
   ctx.send listFiles(ctx.getPathParams("key"), true)
+
+proc statusFile*(ctx: Context) {.async.} =
+  ctx.json()
+  ctx.send status ctx.getPathParams("signature")
+  

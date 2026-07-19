@@ -33,6 +33,9 @@ type
     signature: string
     url: string
 
+  FileStatus* = ref object
+    isUploaded*: bool    
+
 const
   Q_LIST_FILES = """
     SELECT
@@ -57,7 +60,7 @@ proc key*(paths: varargs[string]): string {.deprecated.} =
     return paths[0] & ":"
   paths.join(":")  
 
-proc select(file: var FileModel; key: string) : ServiceValue[bool] =
+proc select*(file: var FileModel; key: string) : ServiceValue[bool] =
   if key == "":
     return result.none(400)
 
@@ -129,7 +132,7 @@ proc resolveRedirectFile*(signature: string) : Future[ServiceValue[string]] {.as
     return some red.get
 
   except AssertionDefect, DbError, NotFoundError:
-    return result.none(404, "File not found.")
+    return result.none(404, "File not found. " & getCurrentExceptionMsg())
 
 proc replace(rec: UploadRequestRecord; key: string; fileLength: int) : Future[ServiceValue[FirstResponse]] {.async.} =
   var file: FileModel
@@ -141,6 +144,7 @@ proc replace(rec: UploadRequestRecord; key: string; fileLength: int) : Future[Se
     file.size = 0
     file.isUploaded = false
     file.isDeleted = false
+    file.signature = rec.signature
 
     conn.update(file)
 
@@ -154,7 +158,6 @@ proc replace(rec: UploadRequestRecord; key: string; fileLength: int) : Future[Se
 
       if rex.get:
         file.isUploaded = true
-        file.signature = rec.signature
         file.size = fileLength div 1024
         file.ext = rec.ext
         file.address = rec.address
@@ -248,10 +251,13 @@ proc delete*(key: string) : Future[ServiceValue[string]] {.async.} =
 
     conn.update(file)
 
-proc look*(key: string) : Future[ServiceValue[FileObj]] {.async.} =
+proc look*(signature: string) : Future[ServiceValue[FileObj]] {.async.} =
   var file = new FileModel
   
-  if file.select(key).isNone:
+  try:
+    conn.select(file, "hfb_file.signature = '$#'" % signature)
+
+  except DbError, NotFoundError:  
     return result.none(404)
 
   return some FileObj(
@@ -275,6 +281,28 @@ proc redirectFile*(fileKey: string) : ServiceValue[string] =
     return result.none(po)
 
   some "/.huby/file/" & file.signature & "/resolve"
+
+proc status*(signature: string) : ServiceValue[FileStatus] =
+  var status = new FileStatus
+  let query = """
+    SELECT
+      "hfb_file".isUploaded
+    FROM
+      "hfb_file"      
+    WHERE
+      "hfb_file".signature = '$#'  
+  """
+
+  try:
+    conn.rawSelect(query % signature, status)
+
+  except DbError:
+    return result.none(500, getCurrentExceptionMsg())
+
+  except NotFoundError:
+    return result.none(404, "Not Found")
+
+  return some status  
 
 export
   deleteHf, resolveHf,
