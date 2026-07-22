@@ -1,3 +1,5 @@
+{.deprecated.}
+
 import
   strutils, asyncdispatch
   
@@ -36,8 +38,33 @@ type
   FileStatus* = ref object
     isUploaded*: bool    
 
+  FileQuery = object
+    listFiles = """
+      SELECT
+        "hfb_file".size,
+        "hfb_file".isUploaded,
+        "hfb_file".isDeleted,
+        "hfb_file".signature,
+        "hfb_file".ext,
+        "hfb_file".views,
+        "hfb_file".key
+      FROM
+        "hfb_file" file
+      INNER JOIN
+        "hfb_garage" garage ON file.id = garage.id
+      WHERE
+        file.key LIKE   '$#%' AND
+        file.isDeleted = $#   AND
+        garage.key =    '$#'  AND
+        LIMIT            $#
+    """
+
+
+  FileHander* = ref object of RootObj
+    Q_LIST_FILES = ""    
+
 const
-  Q_LIST_FILES = """
+  Q_LIST_FILES {.deprecated.} = """
     SELECT
       "hfb_file".size,
       "hfb_file".isUploaded,
@@ -49,7 +76,7 @@ const
     FROM
       "hfb_file"
   """
-  Q_LIST_FILES_K = Q_LIST_FILES & """
+  Q_LIST_FILES_K {.deprecated.} = Q_LIST_FILES & """
     WHERE
       key LIKE '$#%' AND
       hfb_file.isDeleted = $#

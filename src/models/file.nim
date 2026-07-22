@@ -1,5 +1,5 @@
 import
-  base, token
+  base, token, garage
 
 type
   FileIdentifierUse* = enum
@@ -9,6 +9,7 @@ type
     key*: string
 
   File* {.tableName: "hfb_file".} = ref object of FileIdentifier
+    storage*: Garage
     size*: int64
     isUploaded*: bool
     isDeleted*: bool
@@ -20,8 +21,11 @@ type
 
   FileModel* = File    
 
+func newFile*(storage: Garage) : File =
+  File(storage: storage)
+
 func newFile*(token = newToken()) : File {.deprecated.} =
   File(key: token.signature)
 
-func newFile*(key = "") : File =
+func newFile*(key = "") : File {.deprecated.} =
   File(key: key)

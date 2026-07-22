@@ -1,0 +1,41 @@
+import strutils
+
+type FileQuery* = object
+    listFiles = """
+      SELECT
+        "hfb_file".size,
+        "hfb_file".isUploaded,
+        "hfb_file".isDeleted,
+        "hfb_file".signature,
+        "hfb_file".ext,
+        "hfb_file".views,
+        "hfb_file".key
+      FROM
+        "hfb_file" file
+      INNER JOIN
+        "hfb_garage" garage ON file.id = garage.id
+      WHERE
+        file.key LIKE   '$#%' AND
+        file.isDeleted = $#   AND
+        garage.key =    '$#'  AND
+        LIMIT            $#
+    """
+
+    byStatus = """
+      SELECT
+        "hfb_file".isUploaded
+      FROM
+        "hfb_file" file
+      INNER JOIN
+        "hfb_garage" garage ON file.id = garage.id
+      WHERE
+        file.signature = '$#' AND
+        garage.key = '$#'
+    """
+
+
+func list*(query: FileQuery; garageKey, fileKey: string; isDeleted = false; limit = 50): string =
+  query.listFiles % [fileKey, $isDeleted, garageKey, $limit]
+
+func checkStatus*(query: FileQuery; garageKey, signature: string): string =
+  query.byStatus % [signature, garageKey]
