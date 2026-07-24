@@ -11,7 +11,7 @@ let
   name = getEnv("DB_NAME")
   conn = open(host, user, pass, name)
 
-conn.createTables(newFile())
+# conn.createTables(newFile())
 
 export
   with, model, conn

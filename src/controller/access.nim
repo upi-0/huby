@@ -3,7 +3,7 @@ import
 
 import
   service/[types, fileHandler, presignedurl],
-  models/file # Tar fileHandler benerin lagi anjim.
+  service/file/[main, adapter]
 
 const
   AvailableActions = ["put", "resolve", "look"]
@@ -22,7 +22,7 @@ proc resolveMeta(ctx: Context; handler: string) : Future[GeneralValidation] {.as
 
   block:
     ?? metaTupleP
-    (get metaTupleP, publicKey)
+    (metaTupleP.get, publicKey)
 
 proc put*(ctx: Context) {.async.} =
   block:
@@ -34,23 +34,10 @@ proc put*(ctx: Context) {.async.} =
     file = ctx.getUploadFile("file")
     fileLength = ctx.request.headers.table["content-length"][0].parseInt()
     record = loadRequestRecord(file.filename)
+    impl = newFileService ctx.getPathParams("garage_name")
+    
+  ?? impl
 
   block:
     file.save(record.dname, record.fname)
-    ctx.send upload(record, meta.key, fileLength, true)
-
-proc resolve*(ctx: Context) {.async.} =
-  ctx.json()
-
-  let (meta, _) = await ctx.resolveMeta("resolve")
-  var
-    file = new FileModel
-    pox = file.select(meta.key)
-
-  ?? pox
-
-  block:
-    let redirectTarget = await resolveRedirectFile file[].signature
-    ?? redirectTarget
-  
-    resp redirect(redirectTarget.get, Http302)
+    ctx.send impl.get.upload(record, meta.key, fileLength, true)

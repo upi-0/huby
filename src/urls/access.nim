@@ -1,6 +1,6 @@
 import prologue, controller/access
 
 let accessUrls* = @[
-  pattern("/{public_key}/put", put, httpMethod=[HttpOptions, HttpPut]),
-  pattern("/{public_key}/resolve", resolve, httpMethod=[HttpGet]),
+  pattern("/{garage_name}/put", put, httpMethod=[HttpOptions, HttpPut]),
+  pattern("/{garage_name}/resolve", resolve, httpMethod=[HttpGet]),
 ]
