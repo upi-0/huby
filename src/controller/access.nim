@@ -2,27 +2,22 @@ import
   prologue, tables, context, json, strutils
 
 import
-  service/[types, fileHandler, presignedurl],
-  service/file/[main, adapter]
+  service/[types, fileHandler],
+  service/presigned/general,
+  models/file/[main, adapter]
 
-const
-  AvailableActions = ["put", "resolve", "look"]
+proc cut(path: string): string =
+  path.split("?")[1]
 
-type
-  GeneralValidation = tuple
-    meta: MetaTuple
-    publicKey: string  
+proc getMeta(ctx: Context; action: string): Future[MetaObj] {.async.} =
+  let hasil = resolve(
+    ctx.request.path.cut,
+    ctx.getPathParams("public_key"),
+    "put"
+  )
 
-proc resolveMeta(ctx: Context; handler: string) : Future[GeneralValidation] {.async.} =
-  let
-    meta = ctx.getQueryParams("meta")
-    hash = ctx.getQueryParams("hash")
-    publicKey = ctx.getPathParams("public_key")
-    metaTupleP = resolveMeta(meta, hash, handler)
-
-  block:
-    ?? metaTupleP
-    (metaTupleP.get, publicKey)
+  ?? hasil
+  get hasil
 
 proc put*(ctx: Context) {.async.} =
   block:
@@ -30,7 +25,7 @@ proc put*(ctx: Context) {.async.} =
     ctx.response.headers.add("Access-Control-Request-Method", "OPTIONS, PUT")
 
   let
-    (meta, _) = await ctx.resolveMeta("put")
+    meta = await ctx.getMeta("put")
     file = ctx.getUploadFile("file")
     fileLength = ctx.request.headers.table["content-length"][0].parseInt()
     record = loadRequestRecord(file.filename)
@@ -40,4 +35,20 @@ proc put*(ctx: Context) {.async.} =
 
   block:
     file.save(record.dname, record.fname)
-    ctx.send impl.get.upload(record, meta.key, fileLength, true)
+    ctx.send upload(record, meta.key, fileLength, true)
+
+proc resolve*(ctx: Context) {.async.} =
+  ctx.json()
+
+  var
+    meta = await ctx.getMeta("resolve")
+    file = new FileModel
+    pox = file.select(meta.key)
+
+  ?? pox
+
+  block:
+    let redirectTarget = await resolveRedirectFile file[].signature
+    ?? redirectTarget
+  
+    resp redirect(redirectTarget.get, Http302)
