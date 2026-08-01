@@ -1,8 +1,6 @@
 import os, osproc, streams, asyncdispatch, strutils, uuids, times
 import std/envvars
 import ../types
-import db, models/token
-import models/file as fmodel
 
 type
   UploadHfResponse* = object
@@ -87,18 +85,6 @@ proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): 
     ayang[] = false
     dir.isInUsed = false
 
-proc prepareFile(tokenSignature: string) : ServiceValue[fmodel.File] {.deprecated.} =
-  var
-    token = newToken()
-    file = token.newFile()
-
-  try:
-    conn.select(token, "hfb_token.signature = '$#'" % tokenSignature)
-    file.some
-
-  except NotFoundError:
-    return none(fmodel.File, 404)
-
 proc loadRequestRecord*(rawName: string) : UploadRequestRecord =
   let
     asd = now()
@@ -121,54 +107,3 @@ proc startUpload*(rec: UploadRequestRecord): Future[ServiceValue[bool]] {.async.
   block:
     await uploadProcess(dir, rec, ayang)   
     some ayang[]
-
-proc startUpload*(reqRec: UploadRequestRecord; tokenSignature: string; fileLength: int): ServiceValue[UploadHfResponse] {.gcsafe, deprecated.} =
-  try:
-    var
-      ayang = new bool
-      file = prepareFile(tokenSignature)
-
-    if file.isNone:
-      return none(UploadHfResponse, 404, "Invalid Token.")
-
-    var rijal = file.get
-
-    let
-      repo = getEnv("HF_REPO")
-      signature = reqRec.signature
-      asdir = asd.findEmpty()
-
-    block setDataAndStore:
-      rijal.repo = repo
-      rijal.signature = reqRec.signature
-      rijal.ext = reqRec.ext
-      rijal.size = fileLength div 1000 # 1 KilloByte
-      rijal.views = 0
-      rijal.address = reqRec.address
-
-      conn.insert(rijal)
-
-    let response = UploadHfResponse(
-      id: signature,
-      size: rijal.size
-    )
-
-    proc afterUploadProcess =
-      if not ayang[]:
-        echo "Invalid Target: " & reqRec.signature
-
-      else:  
-        rijal.isUploaded = true
-        conn.update(rijal)
-
-      rijal.reset()
-
-    proc afterFindDir(dir: Future[UploadDir]) =
-      dir.read.uploadProcess(reqRec, ayang).addCallback(afterUploadProcess)
-
-    asdir.addCallback(afterFindDir)
-
-    return some(response, 201)
-
-  except:
-    return none(UploadHfResponse, 404, getCurrentExceptionMsg())

@@ -2,19 +2,12 @@ import
   prologue, strutils
 
 import
-  urls/[
-    wpolicy,
-    auth,
-    token,
-    file,
-    access
-  ],
+  urls/access,
   middleware/[cors, form],
   env
 
 import
-  prologue/middlewares/sessions/memorysession,
-  prologue/middlewares/staticfile
+  prologue/middlewares/sessions/memorysession
 
 let
   settings = newSettings(
@@ -36,18 +29,6 @@ app.use @[
 ]
 
 block setRoute:
-  app.addRoute(
-    wpolicyUrls, "/.huby/wpolicy"    
-  )
-  app.addRoute(
-    authUrls, "/.huby/auth",
-  )  
-  app.addRoute(
-    tokenUrls, "/.huby/token"
-  )
-  app.addRoute(
-    fileUrls, "/.huby/file"
-  )
   app.addRoute(
     accessUrls, "/.huby/storage"
   )

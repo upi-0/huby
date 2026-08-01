@@ -1,5 +1,5 @@
 import
-  base, token, garage
+  base, garage
 
 type
   FileIdentifierUse* = enum
@@ -26,9 +26,6 @@ func newFile*(garage: Garage) : File =
 
 func emptyFile*: File =
   File(garage: Garage())
-
-func newFile*(token = newToken()) : File {.deprecated.} =
-  File(key: token.signature)
 
 func newFile*(key = "") : File {.deprecated.} =
   File(key: key)

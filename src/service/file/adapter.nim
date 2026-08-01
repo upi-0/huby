@@ -15,7 +15,7 @@ type
     url: string  
 
 proc replace(impl: FileService; rec: UploadRequestRecord; key: string; fileLength: int) : Future[ServiceValue[FirstResponse]] {.async.} =
-  var file = emptyFile()
+  var file = newFile impl.garage
 
   if not impl.select(key, file).get:
     return result.none(404, "File Not Found")
@@ -71,7 +71,7 @@ proc upload*(
     replace = false
   ) : Future[ServiceValue[FirstResponse]] {.async.} =
   
-  var file = new FileModel
+  var file = newFile(impl.garage)
   let isExists = impl.exists(key).get
 
   if replace and isExists:
@@ -87,8 +87,9 @@ proc upload*(
     file.size = 0
     file.views = 0
     file.address = rec.address
+    file.key = key
 
-    conn.insert(file)
+    impl.conn.insert(file)
 
   except DbError:
     return result.none(500, getCurrentExceptionMsg())
@@ -104,7 +105,7 @@ proc upload*(
         if rex.get:
           file.isUploaded = true
           file.size = fileLength div 1024
-          conn.update(file)
+          impl.conn.update(file)
 
         else:
           echo "Invalid Target with: $#" % [file.key]
@@ -118,7 +119,7 @@ proc upload*(
       ), 202)
 
 proc delete*(impl: FileService; key: string) : Future[ServiceValue[string]] {.async.} =
-  var file = emptyFile()
+  var file = newFile impl.garage
   
   if not impl.select(key, file).get:
     return result.none(404)
@@ -131,6 +132,41 @@ proc delete*(impl: FileService; key: string) : Future[ServiceValue[string]] {.as
     file.size = 0
 
     conn.update(file)
+
+proc resolveRedirectFile*(impl: FileService; key: string) : Future[ServiceValue[string]] {.async.} =
+  if key == "":
+    return result.none(400)
+
+  var file = newFile impl.garage
+
+  try:    
+    echo impl.select(key, file).errorReason
+    let fleh = file.resolve()
+
+    if fleh.isNone:
+      return result.none(fleh.status, fleh.errorReason)
+    
+    if (
+      not file[].isUploaded and
+      not file[].isDeleted and
+      ["png", "jpg", "jpeg"].contains file[].ext
+    ):
+      return result.none(202, "Not Ready")
+
+    assert file[].isUploaded and fleh.isSome
+    
+    let red = await fleh.get.redirectUrl
+
+    if red.isNone:
+      return result.none(red.status, red.errorReason)
+    
+    return some red.get
+
+  except AssertionDefect, DbError, NotFoundError:
+    return result.none(404, "File not found. " & getCurrentExceptionMsg())
+
+export
+  loadRequestRecord  
 
 when isMainModule:
   var

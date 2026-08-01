@@ -1,6 +1,6 @@
 import
-  models/[token, file], std/[options, with], norm/model,
-  prologue, env
+  models/[garage, file], norm/model,
+  env
 
 import norm/postgres; export postgres
 
@@ -11,7 +11,7 @@ let
   name = getEnv("DB_NAME")
   conn = open(host, user, pass, name)
 
-# conn.createTables(newFile())
+conn.createTables(newFile newGarage())
 
 export
-  with, model, conn
+  model, conn

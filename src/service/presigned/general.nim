@@ -39,6 +39,7 @@ proc resolve*(queryField, publicKey: string, action = "static"): ServiceValue[Me
       calculatedHash = hmac_sha256(key.get, noHash & action).toHex()
 
     if not calculatedHash.startsWith hash:
+      echo noHash & action
       return result.none(403, "Invalid Hash")
 
   block defineResult:

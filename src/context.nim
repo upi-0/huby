@@ -64,7 +64,7 @@ proc send*[T](ctx: Context; sv: ServiceValue[T]) {.async.} =
 proc send*[T](ctx: Context; sv: Future[ServiceValue[T]]) {.async.} =
   send(ctx, await sv)
 
-proc tokenSignature*(ctx: Context): string = 
+proc tokenSignature*(ctx: Context): string {.deprecated.} = 
   let
     headers = ctx.request.nativeRequest.headers.table
 
@@ -99,7 +99,7 @@ proc done =
 template `??`*[T](sv: ServiceValue[T]) =
   if ctx.request.reqMethod == HttpOptions:
     await ctx.send("", HttpCode(sv.status))
-    done()  
+    done()
 
   if sv.isNone:
     await ctx.send sv
