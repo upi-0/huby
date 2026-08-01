@@ -2,7 +2,7 @@ import
   base, publicKey
 
 type
-  Garage* {.tableName: "hfb_file".} = ref object of Model
+  Garage* {.tableName: "hfb_garage".} = ref object of Model
     name*: string
     key*: string
 

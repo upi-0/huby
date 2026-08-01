@@ -29,13 +29,15 @@ type FileQuery* = object
       INNER JOIN
         "hfb_garage" garage ON file.id = garage.id
       WHERE
-        file.signature = '$#' AND
+        file.key = '$#' AND
         garage.key = '$#'
     """
+
+    select* = "hfb_file.key = '$#' AND hfb_file.garage = $#"
 
 
 func list*(query: FileQuery; garageKey, fileKey: string; isDeleted = false; limit = 50): string =
   query.listFiles % [fileKey, $isDeleted, garageKey, $limit]
 
-func checkStatus*(query: FileQuery; garageKey, signature: string): string =
-  query.byStatus % [signature, garageKey]
+func checkStatus*(query: FileQuery; garageKey, key: string): string =
+  query.byStatus % [key, garageKey]

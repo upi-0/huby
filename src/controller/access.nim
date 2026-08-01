@@ -4,7 +4,7 @@ import
 import
   service/[types, fileHandler],
   service/presigned/general,
-  models/file
+  models/file/[main, adapter]
 
 proc cut(path: string): string =
   path.split("?")[1]
@@ -29,6 +29,9 @@ proc put*(ctx: Context) {.async.} =
     file = ctx.getUploadFile("file")
     fileLength = ctx.request.headers.table["content-length"][0].parseInt()
     record = loadRequestRecord(file.filename)
+    impl = newFileService ctx.getPathParams("garage_name")
+    
+  ?? impl
 
   block:
     file.save(record.dname, record.fname)

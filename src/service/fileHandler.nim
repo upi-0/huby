@@ -1,7 +1,7 @@
 {.deprecated.}
 
 import
-  strutils, asyncdispatch
+  strutils, asyncdispatch, file/main
   
 import hf/[
   deleteHf,
@@ -87,47 +87,6 @@ proc key*(paths: varargs[string]): string {.deprecated.} =
     return paths[0] & ":"
   paths.join(":")  
 
-proc select*(file: var FileModel; key: string) : ServiceValue[bool] =
-  if key == "":
-    return result.none(400)
-
-  try:
-    file = newFile("")
-    conn.select(file, "hfb_file.key = '$#'" % key)
-    return some(true)
-
-  except Exception:
-    return result.none(404)
-
-proc exists*[T: FileModel](fk: typedesc[T]; key: string) : ServiceValue[bool] =
-  if key == "":
-    return result.none(400)
-
-  try:
-    assert conn.exists(T, "hfb_file.key = '$#'" % key)
-
-  except Exception, DbError:
-    return some false
-
-  some true
-
-proc listFiles*(key: string; delete = false) : Future[ServiceValue[seq[FileObj]]] {.async.} =
-  var files = @[FileObj()]
-
-  if key == "" or key.endsWith(":"):
-    return result.none(400)  
-
-  try:
-    conn.rawSelect(Q_LIST_FILES_K % [key & ":", $delete], files)    
-
-    if files.len > 0:
-      return some files
-
-    result.none(404, "No File.")
-
-  except Exception:
-    result.none(500, getCurrentExceptionMsg())
-
 proc resolveRedirectFile*(signature: string) : Future[ServiceValue[string]] {.async.} =
   if signature == "":
     return result.none(400)
@@ -160,123 +119,6 @@ proc resolveRedirectFile*(signature: string) : Future[ServiceValue[string]] {.as
 
   except AssertionDefect, DbError, NotFoundError:
     return result.none(404, "File not found. " & getCurrentExceptionMsg())
-
-proc replace(rec: UploadRequestRecord; key: string; fileLength: int) : Future[ServiceValue[FirstResponse]] {.async.} =
-  var file: FileModel
-
-  if file.select(key).isNone:
-    return result.none(404)
-
-  try:
-    file.size = 0
-    file.isUploaded = false
-    file.isDeleted = false
-    file.signature = rec.signature
-
-    conn.update(file)
-
-  except DbError:
-    return result.none(500)  
-
-  block startDeleteThenUpload:
-    proc afterUpload(pro: Future[ServiceValue[bool]]) =
-      let rex = pro.read
-      assert rex.isSome
-
-      if rex.get:
-        file.isUploaded = true
-        file.size = fileLength div 1024
-        file.ext = rec.ext
-        file.address = rec.address
-        file.repo = getEnv("HF_REPO")
-        
-        conn.update(file)
-
-      else:
-        echo "Invalid Target with: $#" % [file.key]
-
-    proc afterDelete(delResult: Future[ServiceValue[string]]) =
-      if delResult.read.isSome:
-        let uppProcess = startUpload(rec)
-        uppProcess.addCallback(afterUpload)     
-
-    block:
-      let deleteProcess = deleteFile(file.resolve.get.hfUrl)
-      deleteProcess.addCallback(afterDelete)
-
-  return some(FirstResponse(
-    signature: rec.signature,
-    size: fileLength,
-    url: "/.huby/file/" & rec.signature & "/resolve"
-  ), 202)
-
-proc upload*(
-    rec: UploadRequestRecord;
-    key: string;
-    fileLength: int;
-    replace = false
-  ) : Future[ServiceValue[FirstResponse]] {.async.} =
-  
-  var file = newFile(key)
-  let isExists = FileModel.exists(key).get
-
-  if replace and isExists:
-    return await replace(rec, key, fileLength)
-
-  elif not replace and isExists:
-    return result.none(409)
-  
-  try:
-    file.repo = getEnv("HF_REPO")
-    file.signature = rec.signature
-    file.ext = rec.ext
-    file.size = 0
-    file.views = 0
-    file.address = rec.address
-
-    conn.insert(file)
-
-  except DbError:
-    return result.none(500, getCurrentExceptionMsg())
-
-  block startUpload:
-    let process = startUpload(rec)
-
-    process.addCallback(
-      proc(process: Future[ServiceValue[bool]]) =
-        let rex = process.read
-        assert rex.isSome
-
-        if rex.get:
-          file.isUploaded = true
-          file.size = fileLength div 1024
-          conn.update(file)
-
-        else:
-          echo "Invalid Target with: $#" % [file.key]
-    )
-
-    return some(
-      FirstResponse(
-        signature: rec.signature,
-        size: fileLength,
-        url: "/.huby/file/" & file.signature & "/resolve"
-      ), 202)
-
-proc delete*(key: string) : Future[ServiceValue[string]] {.async.} =
-  var file = new FileModel
-  
-  if file.select(key).isNone:
-    return result.none(404)
-
-  result = await deleteFile(file.resolve().get.hfUrl)
-
-  if result.isSome:
-    file.isDeleted = true
-    file.isUploaded = false
-    file.size = 0
-
-    conn.update(file)
 
 proc look*(signature: string) : Future[ServiceValue[FileObj]] {.async.} =
   var file = new FileModel
@@ -334,27 +176,7 @@ proc status*(signature: string) : ServiceValue[FileStatus] =
 export
   deleteHf, resolveHf,
   uploadHf, types
-
-when isMainModule:
-  import os
-
-  proc upp() {.async.} =
-    let po = loadRequestRecord("load.txt")
-    writeFile(po.dname / po.fname, "Ini File TXT")
-
-    let ax = await replace(po, "linux:rijal", 3_000)
-    await sleepAsync(15_000)
-
-    try:
-      assert ax.isSome
-      echo ax.get.size
-
-    except AssertionDefect:
-      echo ax.status
-      echo ax.errorReason    
-
-  waitFor upp()
-
+  
   # let po = waitFor delete("linux:rijal")  
 
   # try:

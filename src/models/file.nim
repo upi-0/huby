@@ -9,7 +9,7 @@ type
     key*: string
 
   File* {.tableName: "hfb_file".} = ref object of FileIdentifier
-    storage*: Garage
+    garage*: Garage
     size*: int64
     isUploaded*: bool
     isDeleted*: bool
@@ -21,8 +21,11 @@ type
 
   FileModel* = File    
 
-func newFile*(storage: Garage) : File =
-  File(storage: storage)
+func newFile*(garage: Garage) : File =
+  File(garage: garage)
+
+func emptyFile*: File =
+  File(garage: Garage())
 
 func newFile*(token = newToken()) : File {.deprecated.} =
   File(key: token.signature)
