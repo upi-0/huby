@@ -2,27 +2,22 @@ import
   prologue, tables, context, json, strutils
 
 import
-  service/[types, fileHandler, presignedurl],
-  models/file # Tar fileHandler benerin lagi anjim.
+  service/[types, fileHandler],
+  service/presigned/general,
+  models/file
 
-const
-  AvailableActions = ["put", "resolve", "look"]
+proc cut(path: string): string =
+  path.split("?")[1]
 
-type
-  GeneralValidation = tuple
-    meta: MetaTuple
-    publicKey: string  
+proc getMeta(ctx: Context; action: string): Future[MetaObj] {.async.} =
+  let hasil = resolve(
+    ctx.request.path.cut,
+    ctx.getPathParams("public_key"),
+    "put"
+  )
 
-proc resolveMeta(ctx: Context; handler: string) : Future[GeneralValidation] {.async.} =
-  let
-    meta = ctx.getQueryParams("meta")
-    hash = ctx.getQueryParams("hash")
-    publicKey = ctx.getPathParams("public_key")
-    metaTupleP = resolveMeta(meta, hash, handler)
-
-  block:
-    ?? metaTupleP
-    (get metaTupleP, publicKey)
+  ?? hasil
+  get hasil
 
 proc put*(ctx: Context) {.async.} =
   block:
@@ -30,7 +25,7 @@ proc put*(ctx: Context) {.async.} =
     ctx.response.headers.add("Access-Control-Request-Method", "OPTIONS, PUT")
 
   let
-    (meta, _) = await ctx.resolveMeta("put")
+    meta = await ctx.getMeta("put")
     file = ctx.getUploadFile("file")
     fileLength = ctx.request.headers.table["content-length"][0].parseInt()
     record = loadRequestRecord(file.filename)
@@ -42,8 +37,8 @@ proc put*(ctx: Context) {.async.} =
 proc resolve*(ctx: Context) {.async.} =
   ctx.json()
 
-  let (meta, _) = await ctx.resolveMeta("resolve")
   var
+    meta = await ctx.getMeta("resolve")
     file = new FileModel
     pox = file.select(meta.key)
 
