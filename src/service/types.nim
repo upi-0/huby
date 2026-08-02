@@ -2,11 +2,23 @@ type
   ServiceValueError* = enum
     success, userFailure, serverFailure
 
+  ServiceValueException* = ref object of CatchableError
+    errorReason*: string
+    status*: int
+
   ServiceValue*[T] = ref object of RootObj
     value: T
     errorReason*: string
     status* = 200
     isEmpty = true
+
+template `>>`*[T](sv: ServiceValue[T]) =
+  if sv.isNone:
+    raise ServiceValueException(
+      status: sv.status,
+      msg: sv.errorReason,
+      errorReason: sv.errorReason
+    )
 
 proc groupError*(status: int) : ServiceValueError =
   if status in 200 .. 304:
@@ -48,6 +60,6 @@ proc isNone*[T](sv: ServiceValue[T]) : bool =
   sv.isEmpty
 
 proc get*[T](sv: ServiceValue[T]) : T =
-  assert not sv.isEmpty
+  >> sv
   sv.value
   

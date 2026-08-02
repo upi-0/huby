@@ -90,17 +90,16 @@ proc ipua*(ctx: Context) : Future[IpUa] {.async.} =
 
   return (ip, ua)
 
-# proc responseNow*(ctx: Context) : Future[void] {.async.} =
-  # await ctx.send()
-
-proc done =
-  raise newException(ExpectedExit, "Stop") 
-
-template `??`*[T](sv: ServiceValue[T]) =
+template `||`*[T](sv: ServiceValue[T]) =
   if ctx.request.reqMethod == HttpOptions:
-    await ctx.send("", HttpCode(sv.status))
-    done()
+    raise ServiceValueException(
+      status: sv.status,
+      errorReason: "",
+      msg: ""
+    )
 
-  if sv.isNone:
-    await ctx.send sv
-    done()   
+  else:
+    >> sv  
+
+template `??`*[T](sv: ServiceValue[T]) {.deprecated.} =
+  >> sv

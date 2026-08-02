@@ -1,6 +1,9 @@
 import
   prologue, context
 
+import
+  service/types  
+
 proc normalize*() : HandlerAsync =
   proc handler(ctx: Context) {.async.} =
     let allowedPayload = not [HttpGet, HttpHead, HttpDelete].contains ctx.request.reqMethod
@@ -11,7 +14,13 @@ proc normalize*() : HandlerAsync =
     else:
       try:
         await ctx.switch()
-      except ExpectedExit:
-        discard  
+      except ServiceValueException:
+        let
+          error = ServiceValueException getCurrentException()
+          msg = block:
+            if ctx.request.reqMethod == HttpOptions: ""
+            else: error.errorReason
+            
+        await ctx.send(msg, HttpCode error.status)
 
   result = handler
