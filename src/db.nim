@@ -2,7 +2,7 @@ import
   models/[garage, file], norm/model,
   env
 
-import norm/postgres; export postgres
+import postgres; export postgres
 
 let
   host = getEnv("DB_HOST")
