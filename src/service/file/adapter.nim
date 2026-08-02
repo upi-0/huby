@@ -15,12 +15,14 @@ type
     url: string  
 
 proc replace(impl: FileService; rec: UploadRequestRecord; key: string; fileLength: int) : Future[ServiceValue[FirstResponse]] {.async.} =
-  var file = newFile impl.garage
+  var
+    file = newFile impl.garage
+    prevSize: int
 
-  if not impl.select(key, file).get:
-    return result.none(404, "File Not Found")
+  >> impl.select(key, file)
 
   try:
+    prevSize = file.size
     file.size = 0
     file.isUploaded = false
     file.isDeleted = false
@@ -46,14 +48,20 @@ proc replace(impl: FileService; rec: UploadRequestRecord; key: string; fileLengt
         impl.conn.update(file)
 
       else:
+        >> impl.updateStorageUsed(file.size, "-")
+        impl.conn.update(file)
+
         echo "Invalid Target with: $#" % [file.key]
 
     proc afterDelete(delResult: Future[ServiceValue[string]]) =
       if delResult.read.isSome:
         let uppProcess = startUpload(rec)
-        uppProcess.addCallback(afterUpload)     
+        uppProcess.addCallback(afterUpload)       
 
     block:
+      >> impl.updateStorageUsed(prevSize, "-")
+      >> impl.updateStorageUsed(fileLength div 1024, "+")
+
       let deleteProcess = deleteFile(file.resolve.get.hfUrl)
       deleteProcess.addCallback(afterDelete)
 
@@ -67,15 +75,17 @@ proc upload*(
     impl: FileService;
     rec: UploadRequestRecord;
     key: string;
-    fileLength: int;
+    contentLength: int;
     replace = false
   ) : Future[ServiceValue[FirstResponse]] {.async.} =
   
   var file = newFile(impl.garage)
-  let isExists = impl.exists(key).get
+  let
+    isExists = impl.exists(key).get
+    fileSize = contentLength div 1024
 
   if replace and isExists:
-    return await impl.replace(rec, key, fileLength)
+    return await impl.replace(rec, key, contentLength)
 
   elif not replace and isExists:
     return result.none(409)
@@ -89,6 +99,7 @@ proc upload*(
     file.address = rec.address
     file.key = key
 
+    >> impl.updateStorageUsed(fileSize)
     impl.conn.insert(file)
 
   except DbError:
@@ -104,17 +115,18 @@ proc upload*(
 
         if rex.get:
           file.isUploaded = true
-          file.size = fileLength div 1024
+          file.size = fileSize
           impl.conn.update(file)
 
         else:
+          >> impl.updateStorageUsed(fileSize, "-")
           echo "Invalid Target with: $#" % [file.key]
     )
 
     return some(
       FirstResponse(
         signature: rec.signature,
-        size: fileLength,
+        size: fileSize,
         url: "/.huby/file/" & file.signature & "/resolve"
       ), 202)
 

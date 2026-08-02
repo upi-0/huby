@@ -8,7 +8,7 @@ import
   ../types, utils
 
 const
-  Key = "syafitri-jendal-4f6e"
+  Key = "dapdap"
   HashInitializer = "&hash="
 
 type

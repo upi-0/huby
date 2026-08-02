@@ -1,9 +1,14 @@
 import
-  query, ../types,
-  ../garage/main
+  query,
+  ../garage/[main, query],
+  ../types
+
+from options import isNone, get
 
 import
-  strutils,
+  strutils
+
+import  
   models/[garage, file], db
 
 type
@@ -38,6 +43,18 @@ proc newFileService*(grg: string) : ServiceValue[FileService] =
     return result.none gara
 
   some newFileService(gara.get, conn)  
+
+proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] =
+  let
+    query = GarageQuery()
+    garageId = impl.garage.id
+    updateq = query.updateStorageUsed(garageId, length, operator)
+    cintamu = impl.conn.getRow(sql updateq)
+
+  if cintamu.isNone:
+    return result.none(403, "Limit Reached.")
+
+  some cintamu.get[0].to(int)
 
 proc status*(impl: FileService; key: string) : ServiceValue[FileStatus] =
   var status = new FileStatus

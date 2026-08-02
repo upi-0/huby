@@ -22,7 +22,7 @@ type
   FileModel* = File    
 
 func newFile*(garage: Garage) : File =
-  File(garage: garage)
+  File(garage: Garage(id: garage.id))
 
 func emptyFile*: File =
   File(garage: Garage())
