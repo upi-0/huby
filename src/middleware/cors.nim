@@ -23,8 +23,8 @@ proc useCors*(allowedCors: seq[string]; strict = false) : HandlerAsync =
       origin = "*"
 
     block:
-      await ctx.switch()
       ctx.response.headers["access-control-allow-origin"] = @[origin]
+      await ctx.switch()
     
   result = realHandler
 
