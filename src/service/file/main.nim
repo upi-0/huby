@@ -23,6 +23,8 @@ type
 
   FileStatus* = ref object
     isUploaded*: bool   
+    isDeleted*: bool
+    persistAccess*: bool
 
   FileService* = ref object of RootObj
     garage*: Garage
@@ -87,7 +89,7 @@ proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj
     )
 
     if files.len > 0:
-      return result.none(404, "No File")  
+      return result.none(404, "Zahir was here")  
 
     some files
 
@@ -101,6 +103,15 @@ proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue
 
   except NotFoundError:
     return result.none(404, "File Not Found")  
+
+proc setPersistAccess*(impl: FileService; key: string; to: bool) : ServiceValue[bool] =
+  var file = emptyFile()
+  >> impl.select(key, file)
+
+  file.persistAccess = to
+  impl.conn.update(file)
+
+  some true
 
 when isMainModule:
   var gar = newGarage()

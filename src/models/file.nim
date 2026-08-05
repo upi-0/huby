@@ -13,10 +13,11 @@ type
     size*: int64
     isUploaded*: bool
     isDeleted*: bool
+    persistAccess* = true
     signature* {.unique.}: string
     repo*: string
     ext*: string
-    views*: int
+    views* {.deprecated.}: int 
     address*: string
 
   FileModel* = File    

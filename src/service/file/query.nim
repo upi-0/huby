@@ -23,7 +23,9 @@ type FileQuery* = object
 
     byStatus = """
       SELECT
-        "hfb_file".isUploaded
+        file.isuploaded,
+        file.isdeleted,
+        file.persistaccess
       FROM
         "hfb_file" file
       INNER JOIN
