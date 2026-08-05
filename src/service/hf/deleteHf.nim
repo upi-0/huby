@@ -6,7 +6,9 @@ import
 
 proc deleteProcess(ayang: ref bool; fleh: string) {.async.} =
   let
-    app = getHomeDir() / ".local" / "bin" / "hf"
+    app = block:
+      if not defined(windows): getHomeDir() / ".local" / "bin" / "hf"
+      else: findExe("hf")
     commands = ["buckets", "rm", fleh, "-y"]
     process = startProcess(app, ".", commands)
 

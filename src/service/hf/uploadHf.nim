@@ -57,7 +57,9 @@ proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): 
 
   let
     repo = getEnv("HF_REPO")
-    app = getHomeDir() / ".local" / "bin" / "hf"
+    app = block:
+      if not defined(windows): getHomeDir() / ".local" / "bin" / "hf"
+      else: findExe("hf")
     target = ["hf://buckets", repo, file.address].join("/")
     process = startProcess(app, ".", ["sync", dir.address, target])
 
