@@ -47,3 +47,28 @@ proc resolve*(ctx: Context) {.async.} =
   block:
     let redirectTarget = await impl.get.resolveRedirectFile file[].key  
     resp redirect(redirectTarget.get, Http302)
+
+proc checkStatus*(ctx: Context) {.async.} =
+  block:
+    ctx.json()
+
+  let
+    impl = newFileService ctx.getPathParams("garage_name")
+    meta = await ctx.getMeta("check-status")
+
+  ctx.send impl.get.status(meta.key)    
+
+proc setPersistAccess*(ctx: Context) {.async.} =
+  ctx.json()
+
+  var
+    meta = await ctx.getMeta "set-persist-access"
+    impl = newFileService ctx.getPathParams("garage_name")
+
+  if not meta.config.hasKey("persist_access"):
+    return ctx.send("Bad Request", Http400)   
+    
+  ctx.send impl.get.setPersistAccess(
+    meta.key,
+    meta.config["persist_access"].bval
+  )

@@ -14,7 +14,7 @@ let
     address = "127.0.0.1",
     appName = getEnv("APP_NAME", "Prologue"),
     debug = getEnv("APP_DEBUG", "true").parseBool(),
-    port = Port(6767),
+    port = Port( parseInt getEnv("APP_PORT", "6969") ),
     secretKey = getEnv("APP_KEY", ""),
   )
 
