@@ -133,8 +133,7 @@ proc upload*(
 proc delete*(impl: FileService; key: string) : Future[ServiceValue[string]] {.async.} =
   var file = newFile impl.garage
   
-  if not impl.select(key, file).get:
-    return result.none(404)
+  >> impl.select(key, file)
 
   result = await deleteFile file.resolve().get.hfUrl
 
