@@ -17,19 +17,20 @@ proc getMeta(ctx: Context; action: string): Future[MetaObj] {.async.} =
 proc put*(ctx: Context) {.async.} =
   block:
     ctx.json()
-    ctx.response.headers.add("Access-Control-Request-Method", "OPTIONS, PUT")
+    ctx.response.headers.add("Access-Control-Allow-Methods", "PUT")
+    ctx.response.headers.add("Access-Control-Allow-Headers", "*")
 
   let  
     impl = newFileService ctx.getPathParams("garage_name")
     meta = await ctx.getMeta("put")
-    contentLength = ctx.request.headers.table["content-length"][0].parseInt()
 
   || impl
 
-  let  
+  let
     replace = block:
       if meta.config.hasKey("replace"): meta.config["replace"].bval
-      else: false
+      else: false  
+    contentLength = ctx.request.headers.table["content-length"][0].parseInt()
     file = ctx.getUploadFile("file")
     record = loadRequestRecord(file.filename)
 
