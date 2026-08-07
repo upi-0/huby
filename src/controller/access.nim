@@ -27,12 +27,16 @@ proc put*(ctx: Context) {.async.} =
   || impl
 
   let  
+    replace = block:
+      if meta.config.hasKey("replace"): meta.config["replace"].bval
+      else: false
     file = ctx.getUploadFile("file")
     record = loadRequestRecord(file.filename)
 
   block:
     file.save(record.dname, record.fname)
-    ctx.send impl.get.upload(record, meta.key, contentLength, true)
+    ctx.send impl.get.upload(
+      record, meta.key, contentLength, replace)
 
 proc resolve*(ctx: Context) {.async.} =
   ctx.json()
