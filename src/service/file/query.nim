@@ -29,7 +29,7 @@ type FileQuery* = object
       FROM
         "hfb_file" file
       INNER JOIN
-        "hfb_garage" garage ON file.id = garage.id
+        "hfb_garage" garage ON file.garage = garage.id
       WHERE
         file.key = '$#' AND
         garage.key = '$#'
