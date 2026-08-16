@@ -7,10 +7,10 @@ import
   service/file/[main, adapter],
   models/file
 
-proc getMeta(ctx: Context; action: string): Future[MetaObj] {.async.} =
+proc getMeta(ctx: Context; privateKey: string; action: string): Future[MetaObj] {.async.} =
   resolve(
     ctx.request.query,
-    ctx.getPathParams("garage_name"),
+    privateKey,
     action
   ).get()
 
@@ -22,7 +22,7 @@ proc put*(ctx: Context) {.async.} =
 
   let  
     impl = newFileService ctx.getPathParams("garage_name")
-    meta = await ctx.getMeta("put")
+    meta = await ctx.getMeta(impl.get.garage.key, "put")
 
   || impl
 
@@ -43,8 +43,8 @@ proc resolve*(ctx: Context) {.async.} =
   ctx.json()
 
   var
-    meta = await ctx.getMeta("resolve")
     impl = newFileService ctx.getPathParams("garage_name")
+    meta = await ctx.getMeta(impl.get.garage.key, "resolve")
     file = newFile impl.get.garage
     
   || impl.get.select(meta.key, file)
@@ -59,7 +59,7 @@ proc checkStatus*(ctx: Context) {.async.} =
 
   let
     impl = newFileService ctx.getPathParams("garage_name")
-    meta = await ctx.getMeta("check-status")
+    meta = await ctx.getMeta(impl.get.garage.key, "check-status")
 
   ctx.send impl.get.status(meta.key)    
 
@@ -67,8 +67,8 @@ proc setPersistAccess*(ctx: Context) {.async.} =
   ctx.json()
 
   var
-    meta = await ctx.getMeta "set-persist-access"
     impl = newFileService ctx.getPathParams("garage_name")
+    meta = await ctx.getMeta(impl.get.garage.key, "set-persist-access")
 
   if not meta.config.hasKey("persist_access"):
     return ctx.send("Bad Request", Http400)   

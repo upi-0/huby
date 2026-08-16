@@ -101,7 +101,7 @@ proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue
     impl.conn.select(file, impl.query.select % [key, $impl.garage.id])
     some true
 
-  except NotFoundError:
+  except NotFoundError, DbError:
     return result.none(404, "File Not Found")  
 
 proc setPersistAccess*(impl: FileService; key: string; to: bool) : ServiceValue[bool] =
@@ -112,6 +112,8 @@ proc setPersistAccess*(impl: FileService; key: string; to: bool) : ServiceValue[
   impl.conn.update(file)
 
   some true
+
+export Garage
 
 when isMainModule:
   var gar = newGarage()
