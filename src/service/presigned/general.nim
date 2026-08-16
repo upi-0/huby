@@ -5,10 +5,10 @@ import
   hmac
 
 import
-  ../types, utils
+  ../types, utils,
+  models/garage
 
 const
-  Key = "dapdap"
   HashInitializer = "&hash="
 
 type
@@ -23,10 +23,7 @@ template validateHash() =
   if queryField[queryField.find(HashInitializer)  + 6 .. ^1].len <= 10:
     return result.none(400, "Hash to short")    
 
-proc getPrivateKey(publicKey: string): ServiceValue[string] =
-  some Key
-
-proc resolve*(queryField, publicKey: string, action = "static"): ServiceValue[MetaObj] = 
+proc resolve*(queryField, privateKey: string, action = "static"): ServiceValue[MetaObj] = 
   validateHash()
 
   let
@@ -35,11 +32,13 @@ proc resolve*(queryField, publicKey: string, action = "static"): ServiceValue[Me
   
   block calculateHash:
     let
-      key = getPrivateKey publicKey
-      calculatedHash = hmac_sha256(key.get, noHash & action).toHex()
+      key = privateKey
+      calculatedHash = hmac_sha256(key, noHash & action).toHex()
 
     if not calculatedHash.startsWith hash:
-      echo noHash & action
+      echo "KEY : ", privateKey      
+      echo "HASH: ", calculatedHash
+
       return result.none(403, "Invalid Hash")
 
   block defineResult:
@@ -59,20 +58,3 @@ proc resolve*(queryField, publicKey: string, action = "static"): ServiceValue[Me
 
     except Exception:
       return result.none(500, "Error.")
-
-when isMainModule:
-  proc persist =
-    const
-      queryField = "key=linux%3Arijal&config=%7B%7D&hash=f248ff256267598e2177cedd482bc3869f6e94af0cc92d0059f4e09b064372f9"
-      publicKey = "MAMAM"
-
-    let melihat = resolve(queryField, publicKey, "static")
-
-    try:
-      assert melihat.isSome
-      echo melihat.get.key
-
-    except AssertionDefect:
-      echo melihat.errorReason
-
-  persist()
