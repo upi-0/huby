@@ -13,13 +13,15 @@ type HuggingfaceUrl* = tuple
 proc resolve*(file: fm.File; download = false) : ServiceValue[HuggingfaceUrl] =
   try:
     let
-      repo = file.repo
-      filename = [file.signature, file.ext].join(".")
-      hfUrl = "hf://buckets/" & [repo, file.address, filename].join("/")
+      realAddress = block:
+        if file.address.count('/') == 1: [file.address & "/" & file.signature, file.ext].join(".")
+        else: file.address
       dl = block:
         if download: "?download=true"
         else: ""
-      httpUrl = "https://huggingface.co/buckets/$#/resolve/$#/$#" % [repo, file.address, filename] & dl
+      repo = file.repo
+      httpUrl = "https://huggingface.co/buckets/$#/resolve/$#" % [repo, realAddress] & dl
+      hfUrl = "hf://buckets/" & [repo, realAddress].join("/")
 
     return some (hfUrl, httpUrl)
   
@@ -35,7 +37,7 @@ proc redirectUrl*(resolved: HuggingfaceUrl) : Future[ServiceValue[string]] {.asy
     some(url)
 
   except KeyError:
-    none(string, 404, "From HF")
+    none(string, 404, resolved.httpUrl)
 
   except Exception:
     none(string, 500, getCurrentExceptionMsg())

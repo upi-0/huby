@@ -1,6 +1,6 @@
 import os, osproc, streams, asyncdispatch, strutils, uuids, times
 import std/envvars
-import ../types
+import ../types, utils
 
 type
   UploadHfResponse* = object
@@ -51,17 +51,22 @@ proc findEmpty*(ud: ptr UploadDirs) : Future[UploadDir] {.async.} =
     await sleepAsync(1_000)  
 
 proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): Future[void] {.async.} =
+  let dirAddress = dir.address / file.signature
+
   block moveFile:
     # Besok2 seharusnya ga gini jur.
-    moveFile(file.dname / file.fname, dir.address / file.fname)
+    createDir(dirAddress)
+    moveFile(file.dname / file.fname, dirAddress / file.fname)
 
   let
     repo = getEnv("HF_REPO")
     app = block:
       if not defined(windows): getHomeDir() / ".local" / "bin" / "hf"
       else: findExe("hf")
-    target = ["hf://buckets", repo, file.address].join("/")
-    process = startProcess(app, ".", ["sync", dir.address, target])
+    target = ["hf://buckets", repo, file.address.getDirName()].join("/")
+    process = startProcess(app, ".", ["sync", dirAddress, target])
+
+  echo target
 
   dir.isInUsed = true
 
@@ -72,7 +77,9 @@ proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): 
       echo "[HF_SUCCESS] " & file.fname
 
       block:
-        removeFile(dir.address / file.fname)
+        removeFile(dirAddress / file.fname)
+        removeDir(dirAddress)
+        
         dir.isInUsed = false
         ayang[] = true
 
@@ -96,8 +103,8 @@ proc loadRequestRecord*(rawName: string) : UploadRequestRecord =
     result.dname = getCurrentDir() / "storage" / "temp"
     result.signature = $genUUID()
     result.ext = rawName.split(".")[^1]
-    result.fname = [result.signature, result.ext].join(".")
-    result.address = "huby/" & hfDir
+    result.fname = rawName
+    result.address = ["huby", hfDir, result.signature, rawName].join("/")
 
   result.dname.createDir()    
 
