@@ -10,13 +10,16 @@ type HuggingfaceUrl* = tuple
   hfUrl: string
   httpUrl: string
 
-proc resolve*(file: fm.File) : ServiceValue[HuggingfaceUrl] =
+proc resolve*(file: fm.File; download = false) : ServiceValue[HuggingfaceUrl] =
   try:
     let
       repo = file.repo
       filename = [file.signature, file.ext].join(".")
       hfUrl = "hf://buckets/" & [repo, file.address, filename].join("/")
-      httpUrl = "https://huggingface.co/buckets/$#/resolve/$#/$#" % [repo, file.address, filename]
+      dl = block:
+        if download: "?download=true"
+        else: ""
+      httpUrl = "https://huggingface.co/buckets/$#/resolve/$#/$#" % [repo, file.address, filename] & dl
 
     return some (hfUrl, httpUrl)
   

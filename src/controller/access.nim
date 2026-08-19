@@ -50,7 +50,9 @@ proc resolve*(ctx: Context) {.async.} =
   || impl.get.select(meta.key, file)
 
   block:
-    let redirectTarget = await impl.get.resolveRedirectFile file[].key  
+    let
+      download = meta.config.getOrDefault("download").getBool(false)
+      redirectTarget = await impl.get.resolveRedirectFile(file[].key, download)
     resp redirect(redirectTarget.get, Http302)
 
 proc checkStatus*(ctx: Context) {.async.} =

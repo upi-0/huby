@@ -144,7 +144,7 @@ proc delete*(impl: FileService; key: string) : Future[ServiceValue[string]] {.as
 
     conn.update(file)
 
-proc resolveRedirectFile*(impl: FileService; key: string) : Future[ServiceValue[string]] {.async.} =
+proc resolveRedirectFile*(impl: FileService; key: string; download = false) : Future[ServiceValue[string]] {.async.} =
   if key == "":
     return result.none(400)
 
@@ -152,7 +152,7 @@ proc resolveRedirectFile*(impl: FileService; key: string) : Future[ServiceValue[
 
   try:    
     echo impl.select(key, file).errorReason
-    let fleh = file.resolve()
+    let fleh = file.resolve download
 
     if fleh.isNone:
       return result.none(fleh.status, fleh.errorReason)
