@@ -1,5 +1,5 @@
 import
-  models/[garage, file], norm/model,
+  models/[garage, file, webhook], norm/model,
   env
 
 import postgres; export postgres
@@ -11,7 +11,9 @@ let
   name = getEnv("DB_NAME")
   conn = open(host, user, pass, name)
 
-conn.createTables(newFile newGarage())
+block:
+  conn.createTables(newFile newGarage())
+  conn.createTables(WebhookDeliveries(garage: newGarage()))
 
 export
   model, conn
