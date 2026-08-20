@@ -1,7 +1,7 @@
 import
   query,
   ../garage/[main, query],
-  ../types
+  ../implement
 
 from options import isNone, get
 
