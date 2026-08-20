@@ -1,5 +1,5 @@
 import
-  query, ../types
+  query, ../implement
 import
   models/[garage, file], db
 

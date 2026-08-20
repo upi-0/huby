@@ -1,8 +1,8 @@
 import
-  main, asyncdispatch, strutils
+  main, asyncdispatch, strutils, webhook
 
 import
-  ../types, ../hf/[uploadHf, deleteHf, resolveHf],
+  ../implement, ../hf/[uploadHf, deleteHf, resolveHf],
   env
 
 import
@@ -14,7 +14,55 @@ type
     signature: string
     url: string  
 
-proc replace(impl: FileService; rec: UploadRequestRecord; key: string; fileLength: int) : Future[ServiceValue[FirstResponse]] {.async.} =
+# Webhook notification helpers
+proc notifyUploaded(hook: ServiceValue[WebhookConnection]; garageName: string; file: FileModel; size: int) =
+  hook.sendHook("file.uploaded", %*{
+    "garage": garageName,
+    "key": file.key,
+    "size": size,
+    "ext": file.ext,
+    "uploaded": file.isUploaded
+  })
+
+proc notifyReplaced(hook: ServiceValue[WebhookConnection]; garageName: string; file: FileModel; size, prevSize: int) =
+  hook.sendHook("file.replaced", %*{
+    "garage": garageName,
+    "key": file.key,
+    "size": size,
+    "prevSize": prevSize,
+    "ext": file.ext,
+    "uploaded": file.isUploaded
+  })
+
+proc notifyConflict(hook: ServiceValue[WebhookConnection]; garageName: string; key: string) =
+  hook.sendHook("file.conflict", %*{
+    "garage": garageName,
+    "key": key,
+    "action": "upload"
+  })
+
+proc notifyAborted(hook: ServiceValue[WebhookConnection]; garageName: string; key: string; reason = "upload_failed") =
+  hook.sendHook("file.aborted", %*{
+    "garage": garageName,
+    "key": key,
+    "uploaded": false,
+    "reason": reason
+  })
+
+proc notifyDeleted(hook: ServiceValue[WebhookConnection]; garageName: string; key: string) =
+  hook.sendHook("file.deleted", %*{
+    "garage": garageName,
+    "key": key,
+    "deleted": true
+  })
+
+proc replace(
+    impl: FileService;
+    rec: UploadRequestRecord;
+    key: string;
+    fileLength: int;
+    hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
+  ) : Future[ServiceValue[FirstResponse]] {.async.} =
   var
     file = newFile impl.garage
     prevSize: int
@@ -22,7 +70,7 @@ proc replace(impl: FileService; rec: UploadRequestRecord; key: string; fileLengt
   >> impl.select(key, file)
 
   try:
-    prevSize = file.size
+    prevSize = file.size.int
     file.size = 0
     file.isUploaded = false
     file.isDeleted = false
@@ -46,10 +94,12 @@ proc replace(impl: FileService; rec: UploadRequestRecord; key: string; fileLengt
         file.repo = getEnv("HF_REPO")
         
         impl.conn.update(file)
+        hook.notifyReplaced(impl.garage.name, file, file.size.int, prevSize)
 
       else:
-        >> impl.updateStorageUsed(file.size, "-")
+        >> impl.updateStorageUsed(file.size.int, "-")
         impl.conn.update(file)
+        hook.notifyAborted(impl.garage.name, file.key, "replace_failed")
 
         echo "Invalid Target with: $#" % [file.key]
 
@@ -76,7 +126,8 @@ proc upload*(
     rec: UploadRequestRecord;
     key: string;
     contentLength: int;
-    replace = false
+    replace = false;
+    hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
   ) : Future[ServiceValue[FirstResponse]] {.async.} =
   
   var file = newFile(impl.garage)
@@ -85,9 +136,10 @@ proc upload*(
     fileSize = contentLength div 1024
 
   if replace and isExists:
-    return await impl.replace(rec, key, contentLength)
+    return await impl.replace(rec, key, contentLength, hook)
 
   elif not replace and isExists:
+    hook.notifyConflict(impl.garage.name, key)
     return result.none(409)
   
   try:
@@ -95,7 +147,6 @@ proc upload*(
     file.signature = rec.signature
     file.ext = rec.ext
     file.size = 0
-    file.views = 0
     file.address = rec.address
     file.key = key
 
@@ -117,10 +168,11 @@ proc upload*(
           file.isUploaded = true
           file.size = fileSize
           impl.conn.update(file)
+          hook.notifyUploaded(impl.garage.name, file, fileSize)
 
         else:
           >> impl.updateStorageUsed(fileSize, "-")
-          echo "Invalid Target with: $#" % [file.key]
+          hook.notifyAborted(impl.garage.name, file.key)
     )
 
     return some(
@@ -130,7 +182,11 @@ proc upload*(
         url: "/.huby/file/" & file.signature & "/resolve"
       ), 202)
 
-proc delete*(impl: FileService; key: string) : Future[ServiceValue[string]] {.async.} =
+proc delete*(
+    impl: FileService;
+    key: string;
+    hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
+  ) : Future[ServiceValue[string]] {.async.} =
   var file = newFile impl.garage
   
   >> impl.select(key, file)
@@ -143,6 +199,7 @@ proc delete*(impl: FileService; key: string) : Future[ServiceValue[string]] {.as
     file.size = 0
 
     conn.update(file)
+    hook.notifyDeleted(impl.garage.name, key)
 
 proc resolveRedirectFile*(impl: FileService; key: string; download = false) : Future[ServiceValue[string]] {.async.} =
   if key == "":

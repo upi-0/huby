@@ -2,7 +2,7 @@ import
   strutils, asyncdispatch, httpclient, tables
 
 import
-  ../types,
+  ../implement,
   models/file as fm,
   http/client
 
@@ -26,7 +26,7 @@ proc resolve*(file: fm.File; download = false) : ServiceValue[HuggingfaceUrl] =
     return some (hfUrl, httpUrl)
   
   except:
-    return none(HuggingfaceUrl, 500, getCurrentExceptionMsg())
+    return none(HuggingfaceUrl, 500)
 
 proc redirectUrl*(resolved: HuggingfaceUrl) : Future[ServiceValue[string]] {.async.} =
   try:
@@ -40,4 +40,4 @@ proc redirectUrl*(resolved: HuggingfaceUrl) : Future[ServiceValue[string]] {.asy
     none(string, 404, resolved.httpUrl)
 
   except Exception:
-    none(string, 500, getCurrentExceptionMsg())
+    none(string, 500)

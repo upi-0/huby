@@ -1,6 +1,6 @@
 import os, osproc, streams, asyncdispatch, strutils, uuids, times
 import std/envvars
-import ../types, utils
+import ../implement, utils
 
 type
   UploadHfResponse* = object
