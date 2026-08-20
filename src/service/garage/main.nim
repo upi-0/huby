@@ -2,7 +2,7 @@ import
   db, models/garage
 
 import
-  ../types
+  ../implement
 
 import strutils
 
