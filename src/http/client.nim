@@ -4,11 +4,14 @@ import
   httpclient, asyncdispatch, net
 
 type
-  HttpConnection = ref object of RootObj  
-    client: AsyncHttpClient
+  HttpConnection* = ref object of RootObj  
+    client*: AsyncHttpClient
 
 proc generateClient() : AsyncHttpClient =
-  newAsyncHttpClient(maxRedirects=0)
+  newAsyncHttpClient(
+    userAgent="Huby by Devtrine",
+    maxRedirects=0
+  )
 
 proc newHttpConnection() : HttpConnection =
   HttpConnection(
