@@ -105,3 +105,17 @@ proc setPersistAccess*(ctx: Context) {.async.} =
     meta.key,
     meta.config["persist_access"].bval
   )
+
+proc rename*(ctx: Context) {.async.} =
+  ctx.json()
+
+  let (impl, meta, hook) = ctx.retrieve("rename")
+
+  if not meta.config.hasKey("new_name"):
+    return ctx.send("Bad Request", Http400)
+
+  ctx.send impl.get.rename(
+    meta.key,
+    meta.config["new_name"].str,
+    hook
+  )
