@@ -38,8 +38,11 @@ type FileQuery* = object
     select* = "hfb_file.key = '$#' AND hfb_file.garage = $#"
 
 
+func escapeSql(val: string): string =
+  val.replace("'", "''")
+
 func list*(query: FileQuery; garageKey, fileKey: string; isDeleted = false; limit = 50): string =
-  query.listFiles % [fileKey, $isDeleted, garageKey, $limit]
+  query.listFiles % [fileKey.escapeSql, $isDeleted, garageKey.escapeSql, $limit]
 
 func checkStatus*(query: FileQuery; garageKey, key: string): string =
-  query.byStatus % [key, garageKey]
+  query.byStatus % [key.escapeSql, garageKey.escapeSql]

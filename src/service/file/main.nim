@@ -76,7 +76,8 @@ proc status*(impl: FileService; key: string) : ServiceValue[FileStatus] =
   return some status  
 
 proc exists*(impl: FileService; key: string) : ServiceValue[bool] =
-  let querySql = impl.query.select % [key, $impl.garage.id]
+  let safeKey = key.replace("'", "''")
+  let querySql = impl.query.select % [safeKey, $impl.garage.id]
   some impl.conn.exists(file.File, querySql)
 
 proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj]] =
@@ -98,7 +99,8 @@ proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj
 
 proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue[bool] =
   try:
-    impl.conn.select(file, impl.query.select % [key, $impl.garage.id])
+    let safeKey = key.replace("'", "''")
+    impl.conn.select(file, impl.query.select % [safeKey, $impl.garage.id])
     some true
 
   except NotFoundError, DbError:
