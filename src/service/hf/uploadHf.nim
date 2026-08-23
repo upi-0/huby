@@ -30,7 +30,7 @@ proc prepareDirs*: UploadDirs {.gcsafe.} =
 
   createDir(base / "temp")
 
-  for i in 0 .. 10: # Example Max Conc
+  for i in 0 .. 40: # Expanded concurrency pool
     let address = base / "dir_" & $i
     
     if not dirExists(address):
@@ -46,9 +46,10 @@ proc findEmpty*(ud: ptr UploadDirs) : Future[UploadDir] {.async.} =
   for _ in 0 .. 100:
     for d in ud[]:
       if not d.isInUsed:
+        d.isInUsed = true
         return d
 
-    await sleepAsync(1_000)  
+    await sleepAsync(500)  
 
 proc sanitizeFsFileName*(name: string): string =
   result = name
@@ -57,6 +58,9 @@ proc sanitizeFsFileName*(name: string): string =
 
 proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): Future[void] {.async.} =
   let dirAddress = dir.address / file.signature
+
+  defer:
+    dir.isInUsed = false
 
   try:
     block moveFile:
@@ -72,7 +76,6 @@ proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): 
       process = startProcess(app, ".", ["sync", dirAddress, target])
 
     echo target
-    dir.isInUsed = true
 
     for _ in 0 .. 20:
       await sleepAsync(1000)
@@ -89,7 +92,6 @@ proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): 
           except Exception:
             discard
           
-          dir.isInUsed = false
           ayang[] = true
 
         return
@@ -97,15 +99,17 @@ proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): 
       elif process.peekExitCode > 0:
         echo "[HF_ERROR]\n" & process.outputStream.readAll()
         echo "[END_HF_ERROR]"
+        break
 
     block:
       try:
-        if fileExists(dir.address / file.fname):
-          removeFile(dir.address / file.fname)
+        if fileExists(dirAddress / file.fname):
+          removeFile(dirAddress / file.fname)
+        if dirExists(dirAddress):
+          removeDir(dirAddress)
       except Exception:
         discard
       ayang[] = false
-      dir.isInUsed = false
 
   except Exception as e:
     echo "[HF_UPLOAD_EXCEPTION] ", e.msg
@@ -115,7 +119,6 @@ proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): 
     except Exception:
       discard
     ayang[] = false
-    dir.isInUsed = false
 
 proc loadRequestRecord*(rawName: string) : UploadRequestRecord =
   let
