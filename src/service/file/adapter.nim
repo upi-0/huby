@@ -10,9 +10,9 @@ import
 
 type
   FirstResponse* = ref object
-    size: int64
-    signature: string
-    url: string  
+    size*: int64
+    signature*: string
+    url*: string  
 
 # Webhook notification helpers
 proc notifyUploaded(hook: ServiceValue[WebhookConnection]; garageName: string; file: FileModel; size: int) =
@@ -39,7 +39,7 @@ proc notifyReplaced(hook: ServiceValue[WebhookConnection]; garageName: string; f
 proc notifyConflict(hook: ServiceValue[WebhookConnection]; garageName: string; key: string) =
   hook.sendHook("file.put", %*{
     "garage": garageName,
-    "success:": false,
+    "success": false,
     "key": key,
     "msg": "conflict"
   })
