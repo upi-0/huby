@@ -1,5 +1,5 @@
 import os, osproc, streams, asyncdispatch, strutils, uuids, times
-import std/envvars
+import std/envvars, uri
 import ../implement, utils
 
 type
@@ -50,47 +50,70 @@ proc findEmpty*(ud: ptr UploadDirs) : Future[UploadDir] {.async.} =
 
     await sleepAsync(1_000)  
 
+proc sanitizeFsFileName*(name: string): string =
+  result = name
+  for ch in [':', '*', '?', '"', '<', '>', '|']:
+    result = result.replace(ch, '_')
+
 proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): Future[void] {.async.} =
   let dirAddress = dir.address / file.signature
 
-  block moveFile:
-    # Besok2 seharusnya ga gini jur.
-    createDir(dirAddress)
-    moveFile(file.dname / file.fname, dirAddress / file.fname)
+  try:
+    block moveFile:
+      createDir(dirAddress)
+      moveFile(file.dname / file.fname, dirAddress / file.fname)
 
-  let
-    repo = getEnv("HF_REPO")
-    app = block:
-      if not defined(windows): getHomeDir() / ".local" / "bin" / "hf"
-      else: findExe("hf")
-    target = ["hf://buckets", repo, file.address.getDirName()].join("/")
-    process = startProcess(app, ".", ["sync", dirAddress, target])
+    let
+      repo = getEnv("HF_REPO")
+      app = block:
+        if not defined(windows): getHomeDir() / ".local" / "bin" / "hf"
+        else: findExe("hf")
+      target = ["hf://buckets", repo, file.address.getDirName()].join("/")
+      process = startProcess(app, ".", ["sync", dirAddress, target])
 
-  echo target
+    echo target
+    dir.isInUsed = true
 
-  dir.isInUsed = true
+    for _ in 0 .. 20:
+      await sleepAsync(1000)
 
-  for _ in 0 .. 20:
-    await sleepAsync(1000)
+      if not process.running() and process.peekExitCode < 1:
+        echo "[HF_SUCCESS] " & file.fname
 
-    if not process.running() and process.peekExitCode < 1:
-      echo "[HF_SUCCESS] " & file.fname
+        block:
+          try:
+            if fileExists(dirAddress / file.fname):
+              removeFile(dirAddress / file.fname)
+            if dirExists(dirAddress):
+              removeDir(dirAddress)
+          except Exception:
+            discard
+          
+          dir.isInUsed = false
+          ayang[] = true
 
-      block:
-        removeFile(dirAddress / file.fname)
+        return
+
+      elif process.peekExitCode > 0:
+        echo "[HF_ERROR]\n" & process.outputStream.readAll()
+        echo "[END_HF_ERROR]"
+
+    block:
+      try:
+        if fileExists(dir.address / file.fname):
+          removeFile(dir.address / file.fname)
+      except Exception:
+        discard
+      ayang[] = false
+      dir.isInUsed = false
+
+  except Exception as e:
+    echo "[HF_UPLOAD_EXCEPTION] ", e.msg
+    try:
+      if dirExists(dirAddress):
         removeDir(dirAddress)
-        
-        dir.isInUsed = false
-        ayang[] = true
-
-      return
-
-    elif process.peekExitCode > 0:
-      echo "[HF_ERROR]\n" & process.outputStream.readAll()
-      echo "[END_HF_ERROR]"
-
-  block:
-    removeFile(dir.address / file.fname)
+    except Exception:
+      discard
     ayang[] = false
     dir.isInUsed = false
 
@@ -102,9 +125,15 @@ proc loadRequestRecord*(rawName: string) : UploadRequestRecord =
   block:
     result.dname = getCurrentDir() / "storage" / "temp"
     result.signature = $genUUID()
-    result.ext = rawName.split(".")[^1]
-    result.fname = rawName
-    result.address = ["huby", hfDir, result.signature, rawName].join("/")
+    result.ext = if rawName.contains('.'): rawName.split(".")[1 .. ^1].join(".") else: ""
+    result.fname = sanitizeFsFileName(rawName)
+
+    result.address = [
+      "huby",
+      hfDir,
+      result.signature,
+      result.fname
+    ].join("/")
 
   result.dname.createDir()    
 

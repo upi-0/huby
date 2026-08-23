@@ -2,7 +2,7 @@ import
   asyncdispatch, os, osproc, strutils, streams
 
 import
-  utils, deleteHf
+  utils, deleteHf, uploadHf
 
 import
   service/implement,
@@ -41,9 +41,10 @@ proc copyProcess(ayang: ref bool; oldFileUrl, newFileUrl: string) {.async.} =
 proc renameFile*(fileAddress: string, targetFileName: string) : Future[ServiceValue[string]] {.async.} =
   let
     ayang = new bool
+    sanitizedTarget = sanitizeFsFileName(targetFileName)
     bucketUrl = "hf://buckets/" & getEnv("HF_REPO")
     originalFileUrl = [bucketUrl, fileAddress].join("/")
-    targetFileAddress = [fileAddress.getDirName(), targetFileName].join("/")
+    targetFileAddress = [fileAddress.getDirName(), sanitizedTarget].join("/")
     targetFileUrl = [bucketUrl, targetFileAddress].join("/")
 
   block copy:
