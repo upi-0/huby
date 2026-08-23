@@ -237,6 +237,20 @@ suite "File Adapter Service GridSearchCV Parameterized Lifecycle Suite":
         filesize: 0,
         renameTarget: ".renamed_zero_secret.env",
         description: "Zero-Byte Hidden Dotfile"
+      ),
+      GridParam(
+        id: 11,
+        filename: "[blue archive] usagi flap lofi but it's a 1 hr chill lofi mix loop for study  [v9RB4B8NQG0].txt",
+        filesize: 5120,
+        renameTarget: "renamed_usagi_study_mix.txt",
+        description: "Extreme Single Quotes, Brackets & Long Spaced Title"
+      ),
+      GridParam(
+        id: 12,
+        filename: "[blue archive] usagi flap lofi but it's a 1 hr chill lofi mix loop for study  [v9RB4B8NQG0].txt",
+        filesize: 0,
+        renameTarget: "renamed_zero_usagi_mix.txt",
+        description: "Zero-Byte Single Quotes, Brackets & Long Spaced Title"
       )
     ]
 
