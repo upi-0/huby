@@ -8,10 +8,14 @@ let
   host = getEnv("DB_HOST")
   user = getEnv("DB_USER")
   pass = getEnv("DB_PASS")
-  name = getEnv("DB_NAME")
+  name = when defined(useTest): "jokodb_test" else: getEnv("DB_NAME")
   conn = open(host, user, pass, name)
 
 block:
+  try:
+    conn.exec(sql"CREATE SCHEMA IF NOT EXISTS webhook")
+  except Exception:
+    discard
   conn.createTables(newFile newGarage())
   conn.createTables(WebhookDeliveries(garage: newGarage()))
 
