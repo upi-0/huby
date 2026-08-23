@@ -13,5 +13,7 @@ proc loadEnv =
     discard   
 
 loadEnv()
+putEnv("PYTHONIOENCODING", "utf-8")
+putEnv("PYTHONUTF8", "1")
 
 export envvars
