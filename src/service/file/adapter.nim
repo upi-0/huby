@@ -167,6 +167,7 @@ proc upload*(
       proc(process: Future[ServiceValue[bool]]) =
         let rex = process.read
         assert rex.isSome
+        echo "DAJJDAKSJDJKLASHDJKALSBDLASBDKHJ>"
 
         if rex.get:
           file.isUploaded = true
