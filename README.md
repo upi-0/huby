@@ -1,1 +1,1 @@
-# huggingface bucket proxy. LAST
+# huggingface bucket proxy.
