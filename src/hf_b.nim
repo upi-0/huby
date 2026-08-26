@@ -2,7 +2,7 @@ import
   prologue, strutils
 
 import
-  urls/access,
+  urls/[access, bridge],
   middleware/[cors, form],
   env
 
@@ -11,7 +11,7 @@ import
 
 let
   settings = newSettings(
-    address = "0.0.0.0",
+    address = "127.0.0.1",
     appName = getEnv("APP_NAME", "Prologue"),
     debug = getEnv("APP_DEBUG", "true").parseBool(),
     port = Port( parseInt getEnv("APP_PORT", "6969") ),
@@ -30,7 +30,8 @@ app.use @[
 
 block setRoute:
   app.addRoute(
-    accessUrls, "/.huby/storage"
-  )
+    accessUrls, "/.huby/storage")
+  app.addRoute(
+    bridgeUrls, "/.huby/bridge")  
 
 app.run()
