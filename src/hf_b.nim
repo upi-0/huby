@@ -11,7 +11,7 @@ import
 
 let
   settings = newSettings(
-    address = "127.0.0.1",
+    address = "0.0.0.0",
     appName = getEnv("APP_NAME", "Prologue"),
     debug = getEnv("APP_DEBUG", "true").parseBool(),
     port = Port( parseInt getEnv("APP_PORT", "6969") ),
