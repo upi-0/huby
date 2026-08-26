@@ -278,6 +278,58 @@ proc resolveRedirectFile*(impl: FileService; key: string; download = false) : Fu
   except AssertionDefect, DbError, NotFoundError:
     return result.none(404, "File not found. " & getCurrentExceptionMsg())
 
+proc putFile*(
+  impl: FileService;
+  key: string;
+  fileSize: int;
+  record: UploadRequestRecord;
+  replace = false
+) : ServiceValue[string] =
+  var
+    file = newFile(impl.garage)
+    address = record.address
+
+  let exists = impl.exists(key).get
+
+  if exists and replace:
+    >> impl.select(key, file)
+
+    var prevSize = file.size
+
+    block:
+      file.size = fileSize
+      address = file.address
+
+    >> impl.updateStorageUsed(prevSize, "-")
+    >> impl.updateStorageUsed(fileSize)
+
+    conn.update file
+
+    return some(address)
+
+  elif exists and not replace:
+    return result.none(409)  
+
+  try:
+    file.isUploaded = true
+    file.isDeleted = false
+    file.signature = record.signature
+    file.size = fileSize
+    file.key = key
+    file.ext = record.ext
+    file.persistAccess = true
+    file.address = record.address
+    file.repo = getEnv("HF_REPO")
+
+    >> impl.updateStorageUsed(fileSize)
+
+    conn.insert file
+
+  except DbError, NotFoundError:
+    return result.none(500)
+
+  some(address, 204)
+
 export
   loadRequestRecord  
 
