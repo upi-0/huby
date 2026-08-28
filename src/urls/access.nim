@@ -6,5 +6,5 @@ let accessUrls* = @[
   pattern("/{garage_name}/check-status", checkStatus, httpMethod=[HttpGet]),
   pattern("/{garage_name}/set-persist-access", setPersistAccess, httpMethod=[HttpPut]),
   pattern("/{garage_name}/rename", rename, httpMethod=[HttpPut]),
-  pattern("/{garage_name}/{jwt_val}", uppyEndpoint, httpMethod=[HttpPost])
+  pattern("/{garage_name}/uppy", uppyEndpoint, httpMethod=[HttpPost, HttpOptions])
 ]

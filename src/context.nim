@@ -42,7 +42,7 @@ proc send*[T: string | JsonNode](ctx: Context; body: T, code = Http200) {.async.
     else:
       illall["error"] = %body
 
-    text = $illall  
+    text = $body
 
   ctx.response.body = ""
 

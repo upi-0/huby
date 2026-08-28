@@ -2,9 +2,12 @@ import
   prologue, tables, context, json, strutils
 
 import
-  service/implement,
+  service/[multipart, implement],
   service/presigned/general,
-  service/file/[main, adapter],
+  service/file/[main, adapter]
+
+import
+  s3presign/main,  
   models/file,
   webhook
 
@@ -84,21 +87,65 @@ proc rename*(ctx: Context) {.async.} =
   )
 
 proc uppyEndpoint*(ctx: Context) {.async.} =
-  ## Meta Config:
-  ## 
-  ## key: string
-  ## bucket: string
-  ## config: {
-  ##    filename: string,
-  ##    contentLength: string,
-  ##    contentType: string
-  ## }
-  ## 
-  ## Query:
-  ## 
-  ## uploadId: int
-  ## partNumber: int
+  ## Meta:
+  ##    key: string
+  ##    config: {
+  ##        contentLength: int
+  ##    }
 
-  let (impl, meta, _) = ctx.retrieve("endpoint", json=true)
-  ctx.send meta.config
-  
+  block:
+    ctx.response.headers.add("Access-Control-Allow-Methods", "PUT, OPTIONS")
+    ctx.response.headers.add("Access-Control-Allow-Headers", "*")
+    ctx.response.headers["Access-Control-Allow-Origin"] = @["http://localhost:5500"]
+
+  if ctx.request.reqMethod == HttpOptions:
+    return ctx.send("", Http204)
+
+  let
+    (impl, meta, _) = ctx.retrieve("uppy")
+    s3conf = r2GenerateConf()
+    hash = ctx.getQueryParams("hash")
+    key = ["temp", impl.get.garage.name, hash, meta.key].join("/")
+    multipart = MultipartClient(
+      conf: s3conf,
+      bucket: "test-yonopod",
+      key: key,
+      contentLength: meta.config["contentLength"].num)
+
+  var
+    body: JsonNode
+    url: string
+
+  try:
+    body = parseJson ctx.request.body
+
+  except Exception:
+    return ctx.send("400", Http400)  
+
+  let
+    uploadId = body.getOrDefault("uploadId")
+    partNumber = body.getOrDefault("partNumber")
+    mthod = body.getOrDefault("method").getStr("DAP")
+
+  if mthod == "POST":
+    url = block:
+      if uploadId.isNil: multipart.createUrl()  # Create Multipart
+      else: multipart.completeUrl(uploadId.str) # Complete Multipart
+
+  elif mthod == "PUT":
+    if uploadId.isNil or partNumber.isNil:
+      return ctx.respond(Http403, "Not for tiny object")
+
+    url = multipart.putPartUrl(
+      uploadId.str,
+      partNumber.num
+    ) # Put Part
+
+  elif mthod == "GET":
+    if not (uploadId.isNil):
+      url = multipart.listPartsUrl(uploadId.str) # List Parts
+
+  else:
+    return ctx.respond(Http500, "Uncatched Event.")
+
+  ctx.send %*{"url": url}

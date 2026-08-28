@@ -9,7 +9,7 @@ proc normalize*() : HandlerAsync =
     let allowedPayload = not [HttpGet, HttpHead, HttpDelete].contains ctx.request.reqMethod
 
     if ctx.request.formParams.data.isNil and allowedPayload:
-      return ctx.send("", Http403)
+      return ctx.send("INVALID FORM.", Http403)
 
     else:
       try:

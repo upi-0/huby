@@ -1,6 +1,7 @@
 import
   asyncdispatch,
-  xmltree, xmlparser
+  xmltree, xmlparser,
+  json, strutils
 
 import
   http/client, s3presign/main,
@@ -11,9 +12,19 @@ type
   MultipartUploadData* = ref object of RootObj
     key, uploadId: string
 
-proc multipartCreateUpload(conf: S3Config, bucket, key: string): Future[ServiceValue[MultipartUploadData]] {.async.} =
+  MultipartClient* = ref object of RootObj
+    conf*: S3Config
+    bucket*, key*: string
+    contentLength*: int    
+
+  MultipartListParts* = seq[JsonNode]
+
+proc createUrl*(client: MultipartClient) : string =
+  client.conf.presignCreateMultipartUpload(client.bucket, client.key)
+
+proc create*(client: MultipartClient): Future[ServiceValue[MultipartUploadData]] {.async.} =
   let
-    url = conf.presignCreateMultipartUpload(bucket, key)
+    url = client.createUrl()
     resp = await hc[].client.request(url, httpMethod=HttpPost)
 
   var
@@ -28,35 +39,50 @@ proc multipartCreateUpload(conf: S3Config, bucket, key: string): Future[ServiceV
     xml = body.parseXml()
 
   some MultipartUploadData(
-    key: key,
+    key: client.key,
     uploadId: xml.findAll("UploadId")[0].innerText
   )
 
-proc putCreateUpload(conf: S3Config; bucket, key, uploadId: string; contentLength, partNumber: int) : ServiceValue[string] =
-  let urls = conf.presignUploadParts(bucket, key, uploadId, contentLength)
-  urls[partNumber - 1].url.some()
+proc putPartUrl*(client: MultipartClient; uploadId: string; partNumber: int) : string =
+  let urls = client.conf.presignUploadParts(client.bucket, client.key, uploadId, client.contentLength)
+  urls[partNumber - 1].url
 
-proc partsList(conf: S3Config; bucket, key, uploadId: string) : Future[ServiceValue[string]] {.async.} = 
+proc listPartsUrl*(client: MultipartClient, uploadId: string) : string =
+  client.conf.presignListParts(client.bucket, client.key, uploadId)
+
+proc listParts*(client: MultipartClient, uploadId: string) : Future[ServiceValue[MultipartListParts]] {.async.} = 
   let
-    url = presignListParts(bucket, key, uploadId)
+    url = client.listPartsUrl(uploadId)
     resp = await hc[].client.request(url)
 
   if not resp.code.is2xx:
-    echo await resp.body
-    return result.none(resp.code)
-  
-  resp.body.read.some()
+    return result.none(403)
+
+  var res = newSeq[JsonNode](0)
+
+  for part in parseXml(await resp.body).findAll("Part"):
+    res.add %*{
+      "PartNumber": part.child("PartNumber").innerText.parseInt(),
+      "ETag": part.child("ETag").innerText,
+      "Size": part.child("Size").innerText.parseInt()
+    }
+
+  res.some()
+
+proc completeUrl*(client: MultipartClient; uploadId: string) : string =
+  client.conf.presignCompleteMultipartUpload(client.bucket, client.key, uploadId)
 
 const yahh = isMainModule
 
 when yahh:
-  import json
+  import oids
 
   let
-    conf = s3GenerateConf("upi-0")
-    upload = waitFor conf.multipartCreateUpload("exx", "asd.png")
+    conf = r2GenerateConf()
+    multipart = MultipartClient(
+      conf: conf,
+      bucket: "kara",
+      key: $genOID() & "/kadapi21.png",
+      contentLength: 200)
 
-  echo conf.putCreateUpload(
-    "exx", "asd.png", upload.get.uploadId, 200, 1
-  ).get
-
+  echo multipart.listPartsUrl("dapi21")

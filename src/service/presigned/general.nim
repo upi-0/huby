@@ -66,9 +66,8 @@ proc resolveJWT*(jwtVal, privateKey: string): ServiceValue[MetaObj] =
       match = token.verify(privateKey, HS256)
 
     if not match:
-      return result.none(403)    
+      return result.none(403, "JWT NOT MATCH")    
     
-
     let meta = MetaObj(
       key: token.claims["key"].node.str,
       config: token.claims["config"].node
@@ -77,7 +76,7 @@ proc resolveJWT*(jwtVal, privateKey: string): ServiceValue[MetaObj] =
     return some meta
 
   except InvalidToken:
-    result.none(403)
+    result.none(403, "INVALID TOKEN")
 
   except Exception:
     result.none(400)

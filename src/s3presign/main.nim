@@ -43,3 +43,15 @@ proc s3GenerateConf*(namespace: string) : S3Config =
     multipartThreshold: 2'i64 * 1024 * 1024 * 1024,
     multipartChunkSize: 2'i64 * 1024 * 1024 * 1024
   )
+
+proc r2GenerateConf*() : S3Config = 
+  S3Config(
+    accessKeyId:getEnv("R2_ACCESS_KEY"),
+    secretAccessKey:getEnv("R2_SECRET_ACCESS_KEY"),
+    region:"auto",
+    forcePathStyle:true,
+    endpoint: getEnv("R2_ENDPOINT"),
+    expiresSeconds: 3600,
+    multipartThreshold: 4'i64 * 1024 * 1024 * 1024,
+    multipartChunkSize: 4'i64 * 1024 * 1024 * 1024
+  )
