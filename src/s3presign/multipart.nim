@@ -84,8 +84,15 @@ proc presignCompleteMultipartUpload*(cfg: S3Config, bucket, key, uploadId: strin
                  @[("uploadId", uploadId)], at = at)
 
 proc presignAbortMultipartUpload*(cfg: S3Config, bucket, key, uploadId: string,
-                                  at: DateTime = getTime().utc): string =
+                                   at: DateTime = getTime().utc): string =
   ## Presigned ``DELETE ?uploadId=...``.
   let t = resolveObjectTarget(cfg, bucket, key)
   presignRequest(cfg, HttpDelete, t.baseUrl, t.canonicalUri,
+                 @[("uploadId", uploadId)], at = at)
+
+proc presignListParts*(cfg: S3Config, bucket, key, uploadId: string,
+                       at: DateTime = getTime().utc): string =
+  ## Presigned ``GET ?uploadId=...`` (``ListParts``); lists uploaded parts.
+  let t = resolveObjectTarget(cfg, bucket, key)
+  presignRequest(cfg, HttpGet, t.baseUrl, t.canonicalUri,
                  @[("uploadId", uploadId)], at = at)

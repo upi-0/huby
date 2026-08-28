@@ -8,43 +8,6 @@ import
   models/file,
   webhook
 
-proc getMeta(ctx: Context; privateKey: string; action: string): MetaObj =
-  resolve(
-    ctx.request.query,
-    privateKey,
-    action
-  ).get()
-
-proc retrieve(ctx: Context; actionName: string) : tuple[
-  impl: ServiceValue[FileService],
-  meta: MetaObj,
-  hook: ServiceValue[WebhookConnection]
-] =
-  block:
-    result.impl = newFileService ctx.getPathParams("garage_name")
-    result.meta = ctx.getMeta(result.impl.get.garage.key, actionName)
-    result.hook = none(WebhookConnection, 0)
-
-  let
-    webhookConf = result.meta.config.getOrDefault("webhook")
-    useHook = webhookConf.getOrDefault("use").getBool(false)
-    requestOrigin = ctx.request.headers.table.getOrDefault("origin", @[""])
-
-  if useHook:
-    let
-      endpoint = webhookConf.getOrDefault("endpoint").getStr("/webhook/huby")
-      origin = webhookConf.getOrDefault("origin").getStr requestOrigin[0]
-
-    if origin.len < 1:
-      ctx.abortExit(Http400, "Invalid origin while using webhook.")
-
-    result.hook = implement.some createWebhookConnection(
-      garageId = result.impl.get.garage.id,
-      garageKey = result.impl.get.garage.key,
-      origin = origin,
-      endpoint = endpoint
-    )
-
 proc put*(ctx: Context) {.async.} =
   block:
     ctx.json()
@@ -119,3 +82,8 @@ proc rename*(ctx: Context) {.async.} =
     meta.config["new_name"].str,
     hook
   )
+
+proc uppyEndpoint*(ctx: Context) {.async.} =
+  let (impl, meta, _) = ctx.retrieve("endpoint", json=true)
+  ctx.send meta.config
+  

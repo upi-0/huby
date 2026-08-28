@@ -1,5 +1,5 @@
 import
-  json, times, strutils
+  json, times, strutils, jwt, tables
 
 import
   hmac
@@ -58,3 +58,26 @@ proc resolve*(queryField, privateKey: string, action = "static"): ServiceValue[M
 
     except Exception:
       return result.none(500, "Error.")
+
+proc resolveJWT*(jwtVal, privateKey: string): ServiceValue[MetaObj] =
+  try:
+    let 
+      token = jwtVal.toJWT()
+      match = token.verify(privateKey, HS256)
+
+    if not match:
+      return result.none(403)    
+    
+
+    let meta = MetaObj(
+      key: token.claims["key"].node.str,
+      config: token.claims["config"].node
+    )
+
+    return some meta
+
+  except InvalidToken:
+    result.none(403)
+
+  except Exception:
+    result.none(400)
