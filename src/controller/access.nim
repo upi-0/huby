@@ -84,6 +84,21 @@ proc rename*(ctx: Context) {.async.} =
   )
 
 proc uppyEndpoint*(ctx: Context) {.async.} =
+  ## Meta Config:
+  ## 
+  ## key: string
+  ## bucket: string
+  ## config: {
+  ##    filename: string,
+  ##    contentLength: string,
+  ##    contentType: string
+  ## }
+  ## 
+  ## Query:
+  ## 
+  ## uploadId: int
+  ## partNumber: int
+
   let (impl, meta, _) = ctx.retrieve("endpoint", json=true)
   ctx.send meta.config
   
