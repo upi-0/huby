@@ -283,7 +283,8 @@ proc putFile*(
   key: string;
   fileSize: int;
   record: UploadRequestRecord;
-  replace = false
+  replace = false;
+  uploaded = true;
 ) : ServiceValue[string] =
   var
     file = newFile(impl.garage)
@@ -311,7 +312,7 @@ proc putFile*(
     return result.none(409)  
 
   try:
-    file.isUploaded = true
+    file.isUploaded = uploaded
     file.isDeleted = false
     file.signature = record.signature
     file.size = fileSize
