@@ -5,7 +5,7 @@ runnableExamples:
   validate(cfg)
 
 type
-  S3Config* = object
+  S3Config* = ref object
     accessKeyId*: string       ## AWS access key ID
     secretAccessKey*: string   ## Secret access key
     region*: string            ## Region, e.g. ``us-east-1`` (``auto`` for Cloudflare R2)

@@ -4,7 +4,7 @@ import
 import
   service/[multipart, implement],
   service/presigned/general,
-  service/file/[main, adapter]
+  service/file/[main, adapter, migrate]
 
 import
   s3presign/main,  
@@ -86,11 +86,15 @@ proc rename*(ctx: Context) {.async.} =
     hook
   )
 
+proc migrateR2_HF*(ctx: Context) {.async.} =
+  discard
+
 proc uppyEndpoint*(ctx: Context) {.async.} =
   ## Meta:
   ##    key: string
   ##    config: {
   ##        contentLength: int
+  ##        fileName: string
   ##    }
 
   block:
@@ -130,7 +134,13 @@ proc uppyEndpoint*(ctx: Context) {.async.} =
   if mthod == "POST":
     url = block:
       if uploadId.isNil: multipart.createUrl()  # Create Multipart
-      else: multipart.completeUrl(uploadId.str) # Complete Multipart
+      else:
+        let data: MigrateData = (
+          key: meta.key,
+          filename: meta.config["fileName"].getStr("binary"),
+          contentLength: meta.config["contentLength"].getInt())
+        >> await impl.get.requestMigrate(key, data)
+        multipart.completeUrl(uploadId.str) # Complete Multipart
 
   elif mthod == "PUT":
     if uploadId.isNil or partNumber.isNil:

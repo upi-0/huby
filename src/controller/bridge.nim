@@ -5,7 +5,7 @@ import
 import  
   s3presign/main,
   service/hf/uploadHf,
-  service/file/[main, adapter],
+  service/file/[main, adapter, migrate],
   service/storage_repo/main,
   service/[types, implement],
   service/presigned/general
@@ -49,3 +49,6 @@ proc generateRecord*(ctx: Context) {.async.} =
       "storage_used": impl.get.garage.storage_used + fileSize
     }
 
+proc completeMigrate*(ctx: Context) {.async.} =
+  let body = parseJson ctx.request.body()
+  resp $(await completeMigrate(body))

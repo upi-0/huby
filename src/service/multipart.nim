@@ -10,7 +10,7 @@ import
 
 type
   MultipartUploadData* = ref object of RootObj
-    key, uploadId: string
+    key*, uploadId*: string
 
   MultipartClient* = ref object of RootObj
     conf*: S3Config
@@ -32,7 +32,7 @@ proc create*(client: MultipartClient): Future[ServiceValue[MultipartUploadData]]
     xml: XmlNode
   
   if not resp.code.is2xx:
-    return result.none(403)
+    return result.none(403, "HF: " & await resp.body)
 
   block:
     body = await resp.body
@@ -56,7 +56,7 @@ proc listParts*(client: MultipartClient, uploadId: string) : Future[ServiceValue
     resp = await hc[].client.request(url)
 
   if not resp.code.is2xx:
-    return result.none(403)
+    return result.none(403, "HF: " & await resp.body())
 
   var res = newSeq[JsonNode](0)
 
