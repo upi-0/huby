@@ -1,5 +1,5 @@
 import
-  base, garage
+  base, garage, storage_repo
 
 type
   FileIdentifierUse* = enum
@@ -15,18 +15,19 @@ type
     isDeleted*: bool
     persistAccess* = true
     signature* {.unique.}: string
-    repo*: string
+    repo* {.deprecated.}: string
     ext*: string
     views* {.deprecated.}: int 
     address*: string
+    storage_repo*: StorageRepo
 
   FileModel* = File    
 
-func newFile*(garage: Garage) : File =
-  File(garage: Garage(id: garage.id))
+proc newFile*(garage: Garage) : File =
+  File(garage: Garage(id: garage.id), storage_repo: newStorageRepo())
 
-func emptyFile*: File =
-  File(garage: Garage())
+proc emptyFile*: File =
+  File(garage: Garage(), storage_repo: newStorageRepo())
 
 func newFile*(key = "") : File {.deprecated.} =
   File(key: key)

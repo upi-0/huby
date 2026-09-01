@@ -6,6 +6,7 @@ import
   s3presign/main,
   service/hf/uploadHf,
   service/file/[main, adapter],
+  service/storage_repo/main,
   service/[types, implement],
   service/presigned/general
 
@@ -37,7 +38,7 @@ proc generateRecord*(ctx: Context) {.async.} =
   let
     record = loadRequestRecord(
       meta.config["name"].str)
-    datang = getEnv("HF_REPO").split("/")
+    datang = impl.get.conn.getIdleStorageRepo().get.getRepoAddress().split("/")
     s3 = datang[0].s3GenerateConf()  
 
   block:

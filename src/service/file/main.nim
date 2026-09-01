@@ -101,7 +101,7 @@ proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue
   try:
     let safeKey = key.replace("'", "''")
     impl.conn.select(file, impl.query.select % [safeKey, $impl.garage.id])
-    some true
+    some(true)
 
   except NotFoundError, DbError:
     return result.none(404, "File Not Found")  

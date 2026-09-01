@@ -1,5 +1,5 @@
 import
-  models/[garage, file, webhook], norm/model,
+  models/[garage, file, storage_repo, webhook], norm/model,
   env
 
 import postgres; export postgres
@@ -12,11 +12,8 @@ let
   conn = open(host, user, pass, name)
 
 block:
-  try:
-    conn.exec(sql"CREATE SCHEMA IF NOT EXISTS webhook")
-  except Exception:
-    discard
-  conn.createTables(newFile newGarage())
+  conn.createTables(newStorageRepo())
+  conn.createTables(emptyFile())
   conn.createTables(WebhookDeliveries(garage: newGarage()))
 
 export

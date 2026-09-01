@@ -3,10 +3,11 @@ import
 
 import
   ../implement, ../hf/[uploadHf, deleteHf, resolveHf, renameHf, utils],
+  ../storage_repo/main,
   env
 
 import
-  db, models/[file, garage]
+  db, models/[file, garage, storage_repo]
 
 type
   FirstResponse* = ref object
@@ -66,7 +67,7 @@ proc replace(
     key: string;
     fileLength: int;
     hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
-  ) : Future[ServiceValue[FirstResponse]] {.async.} =
+  ) : Future[ServiceValue[FirstResponse]] {.async, deprecated.} =
   var
     file = newFile impl.garage
     prevSize: int
@@ -95,7 +96,7 @@ proc replace(
         file.size = fileLength div 1024
         file.ext = rec.ext
         file.address = rec.address
-        file.repo = getEnv("HF_REPO")
+        file.storage_repo = get impl.conn.getIdleStorageRepo
         
         impl.conn.update(file)
         hook.notifyReplaced(impl.garage.name, file, file.size.int, prevSize)
@@ -109,7 +110,11 @@ proc replace(
 
     proc afterDelete(delResult: Future[ServiceValue[string]]) =
       if delResult.read.isSome:
-        let uppProcess = startUpload(rec)
+        let uppProcess = startUpload(
+          rec,
+          file.storage_repo.getUploadToken(),
+          file.storage_repo.getRepoAddress()
+        )
         uppProcess.addCallback(afterUpload)       
 
     block:
@@ -138,6 +143,7 @@ proc upload*(
   let
     isExists = impl.exists(key).get
     fileSize = contentLength div 1024
+    idleRepo = impl.conn.getIdleStorageRepo()
 
   if replace and isExists:
     return await impl.replace(rec, key, contentLength, hook)
@@ -147,7 +153,7 @@ proc upload*(
     return result.none(409)
   
   try:
-    file.repo = getEnv("HF_REPO")
+    file.storage_repo = idleRepo.get
     file.signature = rec.signature
     file.ext = rec.ext
     file.size = 0
@@ -161,7 +167,11 @@ proc upload*(
     return result.none(500, getCurrentExceptionMsg())
 
   block startUpload:
-    let process = startUpload(rec)
+    let process = startUpload(
+      rec,
+      uploadToken=idleRepo.get.getUploadToken(),
+      repo=idleRepo.get.getRepoAddress()
+    )
 
     process.addCallback(
       proc(process: Future[ServiceValue[bool]]) =
@@ -219,7 +229,7 @@ proc rename*(
   block:
     let
       prevName = file.address.getFileName()
-      renameProcess = renameFile(file.address, targetName)
+      renameProcess = renameFile(file.address, targetName, file.storage_repo.getUploadToken(), file.storage_repo.getRepoAddress())
     
     renameProcess.addCallback(
       proc(fb: Future[ServiceValue[string]]) =
@@ -319,7 +329,7 @@ proc putFile*(
     file.ext = record.ext
     file.persistAccess = true
     file.address = record.address
-    file.repo = getEnv("HF_REPO")
+    file.storage_repo = impl.conn.getIdleStorageRepo().get()
 
     >> impl.updateStorageUsed(fileSize)
 
