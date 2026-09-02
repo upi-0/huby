@@ -55,3 +55,15 @@ proc r2GenerateConf*() : S3Config =
     multipartThreshold: 4'i64 * 1024 * 1024 * 1024,
     multipartChunkSize: 4'i64 * 1024 * 1024 * 1024
   )
+
+proc clientGenerateConf*(garageName, privateKey: string) : S3Config =
+  S3Config(
+    accessKeyId: garageName,
+    secretAccessKey: privateKey,
+    region: "sunarso-1",
+    forcePathStyle: true,
+    endpoint: "http://localhost:8787/sahabat-sejati-selamanya",
+    expiresSeconds: 3600,
+    multipartThreshold: 95'i64 * 1024 * 1024,
+    multipartChunkSize: 95'i64 * 1024 * 1024    
+  )

@@ -39,7 +39,7 @@ proc initS3Config*(accessKeyId, secretAccessKey, region: string): S3Config =
     region: region,
     sessionToken: "",
     endpoint: "",
-    forcePathStyle: false,
+    forcePathStyle: true,
     expiresSeconds: DefaultExpirySeconds,
     multipartThreshold: DefaultMultipartThreshold,
     multipartChunkSize: DefaultMultipartChunkSize,

@@ -7,6 +7,7 @@ import
 
 import
   models/[garage, webhook],
+  service/types,
   db
 
 type
@@ -95,6 +96,10 @@ proc sendHook*[T](conn: WebhookConnection; event: string; data: T) =
       db.conn.update hookDelivery
 
   hookProcess.addCallback afterHookProcess
+
+proc sendHook*[T](hookConn: ServiceValue[WebhookConnection]; event: string; data: T) =
+  if hookConn.isSome:
+    hookConn.get.sendHook(event, data)
 
 export json
 
