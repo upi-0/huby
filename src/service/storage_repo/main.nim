@@ -7,7 +7,8 @@ import
 
 import
   service/[implement, types],
-  crypto
+  s3presign/main,
+  crypto  
 
 proc getIdleStorageRepo*(fcon: DbConn): ServiceValue[StorageRepo] =
   let query = StorageRepoQuery()
@@ -37,3 +38,18 @@ proc getRepoAddress*(storageRepo: StorageRepo) : string =
 proc getUploadToken*(storageRepo: StorageRepo) : string =
   let dapdap = loadEncrypterAES256("DB_REPO_SECRET")
   dapdap.decrypt storageRepo.token
+
+proc toS3Config*(storageRepo: StorageRepo) : S3Config =
+  let dapdap = loadEncrypterAES256("DB_REPO_SECRET")
+
+  S3Config(
+    accessKeyId: dapdap.decrypt(storageRepo.access_key),
+    secretAccessKey: dapdap.decrypt(storageRepo.secret_access_key),
+    forcePathStyle: true,
+    region: "us-east-1",
+    endpoint: "https://s3.hf.co/" & dapdap.decrypt(storageRepo.namespace),
+    expiresSeconds: 3600 * 3,
+    multipartThreshold: 95'i64 * 1024 * 1024,
+    multipartChunkSize: 95'i64 * 1024 * 1024    
+  )
+

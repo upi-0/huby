@@ -73,6 +73,8 @@ proc requestMigrate*(impl: FileService, key: string, data: MigrateData) : Future
   let
     httpClient = hc[].client
     meta = getEnv("HF_REPO").split("/")
+
+  var  
     s3client = meta[0].s3GenerateConf()
 
   let
@@ -82,7 +84,8 @@ proc requestMigrate*(impl: FileService, key: string, data: MigrateData) : Future
       fileSize= data.contentLength,
       record= loadRequestRecord(data.filename),
       replace= true,
-      uploaded= false)  
+      uploaded= false,
+      s3conf=s3client)  
     multipartClient = MultipartClient(
       conf: s3client,
       bucket: meta[1],

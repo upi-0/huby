@@ -7,7 +7,7 @@ import
 
 import
   models/[garage, webhook],
-  service/types,
+  service/[implement, types],
   db
 
 type
@@ -63,7 +63,7 @@ proc sendPayload(conn: WebhookConnection; payload: WebhookPayload) : Future[Opti
       headers = headers
     )
 
-    return some response
+    return options.some response
 
   except Exception:
     none AsyncResponse

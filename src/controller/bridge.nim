@@ -39,10 +39,12 @@ proc generateRecord*(ctx: Context) {.async.} =
     record = loadRequestRecord(
       meta.config["name"].str)
     datang = impl.get.conn.getIdleStorageRepo().get.getRepoAddress().split("/")
+
+  var  
     s3 = datang[0].s3GenerateConf()  
 
   block:
-    let address = impl.get.putFile(meta.key, fileSize, record, replace)
+    let address = impl.get.putFile(meta.key, fileSize, record, replace, s3conf=s3)
 
     ctx.send %*{
       "upload_url": s3.presignPut(datang[1], address.get),

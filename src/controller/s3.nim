@@ -11,44 +11,66 @@ import
   service/file/[main, adapter, migrate],
   service/storage_repo/main,
   service/[types, implement],
-  service/presigned/general
+  service/presigned/[utils, general, types]
 
-proc translate*(ctx: Context) {.async.} =
+proc s3handler*(ctx: Context) {.async.} =
   ## Payload:
   ## {
   ##    method: string,
   ##    url: string,
-  ##    payload: string,
-  ##    garage: string,
-  ##    contentLength: int
+  ##    contentLength: string
   ## }
+  ## 
+  ## http://localhost:6868/<OWNER>/<BUCKET_NAME>/<FILE_KEY>
+  ## http://localhost:6868/sunarso/kadapi-bengkel-123/kadapi.png
 
-  ctx.json()
-  
   let
     body = ctx.request.body()
     payload = parseJson body
-    impl = newFileService(payload["garage"].str)
-    mthod = payload["method"].str
-  
+
+  let
+    url = payload["url"].str
+    reqMethod = payload.getOrDefault("method").str
+
+  let  
+    query = url.split("?")[^1].loadQuery()
+    path = url.replace("http://").replace("https://").split("/")
+    owner = path[1]
+    bucket = path[2]
+    impl = newFileService(bucket)
+
   var
-    url: string
-    file = newFile impl.get.garage
+    targetUrl: string
+    s3 = new S3Config
+    resolve: ServiceValue[MetaObj]
 
   let
-    uploadId = payload.getOrDefault("uploadId")
-    partNumber = payload.getOrDefault("partNumber")
+    uploadId = query.getOrDefault("uploadId")
+    partNumber = query.getOrDefault("partNumber")
 
   let
-    contentLength = payload["contentLength"].getInt()
-    record = loadRequestRecord(payload["url"].str.split("/")[^1].split("?")[0])
+    contentLength = payload["contentLength"].getStr().parseInt()
+    record = loadRequestRecord(url.split("/")[^1].split("?")[0])
+
+  if reqMethod == "PUT":
     resolve = resolveS3(
-      payload["url"].str,
+      url,
       impl.get.garage.key,
-      httpMethod=ctx.request.reqMethod
+      httpMethod=HttpPut
     )
 
-  if mthod == "PUT" and uploadId.isNil:
-    url = get impl.get.putFile(resolve.get.key, contentLength, record, true)
+    targetUrl = get impl.get.putFile(
+      key=resolve.get.key,
+      fileSize=contentLength,
+      record=record,
+      replace=true,
+      uploaded=true,
+      s3conf=s3
+    )
 
-  resp url
+    targetUrl = s3.presignPut("exx", targetUrl)
+
+  else:
+    targetUrl = "Pastinya~"  
+
+  resp targetUrl

@@ -3,7 +3,7 @@ import
 
 import
   service/implement,
-  service/presigned/general,
+  service/presigned/[general, types],
   service/file/main,
   webhook  
 

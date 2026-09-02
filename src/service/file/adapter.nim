@@ -4,7 +4,8 @@ import
 import
   ../implement, ../hf/[uploadHf, deleteHf, resolveHf, renameHf, utils],
   ../storage_repo/main,
-  env
+  s3presign/main,
+  env  
 
 import
   db, models/[file, garage, storage_repo]
@@ -295,6 +296,7 @@ proc putFile*(
   record: UploadRequestRecord;
   replace = false;
   uploaded = true;
+  s3conf: var S3Config;
 ) : ServiceValue[string] =
   var
     file = newFile(impl.garage)
@@ -315,8 +317,9 @@ proc putFile*(
     >> impl.updateStorageUsed(fileSize)
 
     conn.update file
+    s3conf = file.storage_repo.toS3Config()
 
-    return some(address)
+    return address.some()
 
   elif exists and not replace:
     return result.none(409)  
@@ -334,12 +337,13 @@ proc putFile*(
 
     >> impl.updateStorageUsed(fileSize)
 
+    s3conf = file.storage_repo.toS3Config()
     conn.insert file
 
   except DbError, NotFoundError:
     return result.none(500)
 
-  some(address, 204)
+  address.some()
 
 export
   loadRequestRecord  
