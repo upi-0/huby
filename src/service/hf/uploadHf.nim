@@ -56,7 +56,7 @@ proc sanitizeFsFileName*(name: string): string =
   for ch in [':', '*', '?', '"', '<', '>', '|']:
     result = result.replace(ch, '_')
 
-proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): Future[void] {.async.} =
+proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool; uploadToken, repo: string): Future[void] {.async.} =
   let dirAddress = dir.address / file.signature
 
   defer:
@@ -68,12 +68,18 @@ proc uploadProcess(dir: UploadDir; file: UploadRequestRecord; ayang: ref bool): 
       moveFile(file.dname / file.fname, dirAddress / file.fname)
 
     let
-      repo = getEnv("HF_REPO")
       app = block:
         if not defined(windows): getHomeDir() / ".local" / "bin" / "hf"
         else: findExe("hf")
       target = ["hf://buckets", repo, file.address.getDirName()].join("/")
-      process = startProcess(app, ".", ["sync", dirAddress, target])
+      command = [
+        "sync",
+        dirAddress,
+        target,
+        "--token",
+        uploadToken
+      ]
+      process = startProcess(app, ".", command)
 
     echo target
 
@@ -140,11 +146,11 @@ proc loadRequestRecord*(rawName: string) : UploadRequestRecord =
 
   result.dname.createDir()    
 
-proc startUpload*(rec: UploadRequestRecord): Future[ServiceValue[bool]] {.async.} =
+proc startUpload*(rec: UploadRequestRecord; uploadToken, repo: string): Future[ServiceValue[bool]] {.async.} =
   let
     ayang = new bool
     dir = await asd.findEmpty()
-  
+
   block:
-    await uploadProcess(dir, rec, ayang)   
+    await uploadProcess(dir, rec, ayang, uploadToken, repo)   
     some ayang[]

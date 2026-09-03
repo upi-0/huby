@@ -1,5 +1,6 @@
 import
-  base, garage, times
+  ../base,
+  ../s3/garage
 
 type
   WebhookDeliveries* {.

@@ -3,55 +3,18 @@ import
 
 import
   ../implement, ../hf/[uploadHf, deleteHf, resolveHf, renameHf, utils],
-  env
+  ../storage_repo/main,
+  s3presign/main,
+  env  
 
 import
-  db, models/[file, garage]
+  db, models/all
 
 type
   FirstResponse* = ref object
     size*: int64
     signature*: string
     url*: string  
-
-# Webhook notification helpers
-proc notifyUploaded(hook: ServiceValue[WebhookConnection]; garageName: string; file: FileModel; size: int) =
-  hook.sendHook("file.put", %*{
-    "garage": garageName,
-    "success": true,
-    "key": file.key,
-    "size": size,
-    "ext": file.ext,
-    "uploaded": file.isUploaded
-  })
-
-proc notifyReplaced(hook: ServiceValue[WebhookConnection]; garageName: string; file: FileModel; size, prevSize: int) =
-  hook.sendHook("file.put.replace", %*{
-    "garage": garageName,
-    "success": true,
-    "key": file.key,
-    "size": size,
-    "prevSize": prevSize,
-    "ext": file.ext,
-    "uploaded": file.isUploaded
-  })
-
-proc notifyConflict(hook: ServiceValue[WebhookConnection]; garageName: string; key: string) =
-  hook.sendHook("file.put", %*{
-    "garage": garageName,
-    "success": false,
-    "key": key,
-    "msg": "conflict"
-  })
-
-proc notifyAborted(hook: ServiceValue[WebhookConnection]; garageName: string; key: string; reason = "upload_failed") =
-  hook.sendHook("file.put", %*{
-    "garage": garageName,
-    "success": false,
-    "key": key,
-    "uploaded": false,
-    "msg": reason
-  })
 
 proc notifyDeleted(hook: ServiceValue[WebhookConnection]; garageName: string; key: string) =
   hook.sendHook("file.delete", %*{
@@ -60,138 +23,11 @@ proc notifyDeleted(hook: ServiceValue[WebhookConnection]; garageName: string; ke
     "key": key,
   })
 
-proc replace(
-    impl: FileService;
-    rec: UploadRequestRecord;
-    key: string;
-    fileLength: int;
-    hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
-  ) : Future[ServiceValue[FirstResponse]] {.async.} =
-  var
-    file = newFile impl.garage
-    prevSize: int
-
-  >> impl.select(key, file)
-
-  try:
-    prevSize = file.size.int
-    file.size = 0
-    file.isUploaded = false
-    file.isDeleted = false
-    file.signature = rec.signature
-
-    impl.conn.update(file)
-
-  except DbError:
-    return result.none(500)  
-
-  block startDeleteThenUpload:
-    proc afterUpload(pro: Future[ServiceValue[bool]]) =
-      let rex = pro.read
-      assert rex.isSome
-
-      if rex.get:
-        file.isUploaded = true
-        file.size = fileLength div 1024
-        file.ext = rec.ext
-        file.address = rec.address
-        file.repo = getEnv("HF_REPO")
-        
-        impl.conn.update(file)
-        hook.notifyReplaced(impl.garage.name, file, file.size.int, prevSize)
-
-      else:
-        >> impl.updateStorageUsed(file.size.int, "-")
-        impl.conn.update(file)
-        hook.notifyAborted(impl.garage.name, file.key, "replace_failed")
-
-        echo "Invalid Target with: $#" % [file.key]
-
-    proc afterDelete(delResult: Future[ServiceValue[string]]) =
-      if delResult.read.isSome:
-        let uppProcess = startUpload(rec)
-        uppProcess.addCallback(afterUpload)       
-
-    block:
-      >> impl.updateStorageUsed(prevSize, "-")
-      >> impl.updateStorageUsed(fileLength div 1024, "+")
-
-      let deleteProcess = deleteFile(file.resolve.get.hfUrl)
-      deleteProcess.addCallback(afterDelete)
-
-  return some(FirstResponse(
-    signature: rec.signature,
-    size: fileLength,
-    url: "/.huby/file/" & rec.signature & "/resolve"
-  ), 202)
-
-proc upload*(
-    impl: FileService;
-    rec: UploadRequestRecord;
-    key: string;
-    contentLength: int;
-    replace = false;
-    hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
-  ) : Future[ServiceValue[FirstResponse]] {.async.} =
-  
-  var file = newFile(impl.garage)
-  let
-    isExists = impl.exists(key).get
-    fileSize = contentLength div 1024
-
-  if replace and isExists:
-    return await impl.replace(rec, key, contentLength, hook)
-
-  elif not replace and isExists:
-    hook.notifyConflict(impl.garage.name, key)
-    return result.none(409)
-  
-  try:
-    file.repo = getEnv("HF_REPO")
-    file.signature = rec.signature
-    file.ext = rec.ext
-    file.size = 0
-    file.address = rec.address
-    file.key = key
-
-    >> impl.updateStorageUsed(fileSize)
-    impl.conn.insert(file)
-
-  except DbError:
-    return result.none(500, getCurrentExceptionMsg())
-
-  block startUpload:
-    let process = startUpload(rec)
-
-    process.addCallback(
-      proc(process: Future[ServiceValue[bool]]) =
-        let rex = process.read
-        assert rex.isSome
-        echo "DAJJDAKSJDJKLASHDJKALSBDLASBDKHJ>"
-
-        if rex.get:
-          file.isUploaded = true
-          file.size = fileSize
-          impl.conn.update(file)
-          hook.notifyUploaded(impl.garage.name, file, fileSize)
-
-        else:
-          >> impl.updateStorageUsed(fileSize, "-")
-          hook.notifyAborted(impl.garage.name, file.key)
-    )
-
-    return some(
-      FirstResponse(
-        signature: rec.signature,
-        size: fileSize,
-        url: "/.huby/file/" & file.signature & "/resolve"
-      ), 202)
-
 proc delete*(
     impl: FileService;
     key: string;
     hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
-  ) : Future[ServiceValue[string]] {.async.} =
+  ) : Future[ServiceValue[string]] {.async, deprecated: "3-9-2026".} =
   var file = newFile impl.garage
   
   >> impl.select(key, file)
@@ -219,7 +55,7 @@ proc rename*(
   block:
     let
       prevName = file.address.getFileName()
-      renameProcess = renameFile(file.address, targetName)
+      renameProcess = renameFile(file.address, targetName, file.storage_repo.getUploadToken(), file.storage_repo.getRepoAddress())
     
     renameProcess.addCallback(
       proc(fb: Future[ServiceValue[string]]) =
@@ -281,14 +117,20 @@ proc resolveRedirectFile*(impl: FileService; key: string; download = false) : Fu
 proc putFile*(
   impl: FileService;
   key: string;
-  fileSize: int;
+  contentLength: int;
   record: UploadRequestRecord;
   replace = false;
   uploaded = true;
+  s3conf: var S3Config;
 ) : ServiceValue[string] =
+  echo impl.garage.name
   var
     file = newFile(impl.garage)
     address = record.address
+    fileSize = contentLength div 1024
+
+  if fileSize < 1:
+    fileSize = 1    
 
   let exists = impl.exists(key).get
 
@@ -304,9 +146,10 @@ proc putFile*(
     >> impl.updateStorageUsed(prevSize, "-")
     >> impl.updateStorageUsed(fileSize)
 
-    conn.update file
+    conn.update(file, ["size"])
+    s3conf = file.storage_repo.toS3Config()
 
-    return some(address)
+    return address.some()
 
   elif exists and not replace:
     return result.none(409)  
@@ -320,16 +163,17 @@ proc putFile*(
     file.ext = record.ext
     file.persistAccess = true
     file.address = record.address
-    file.repo = getEnv("HF_REPO")
+    file.storage_repo = impl.conn.getIdleStorageRepo().get()
 
     >> impl.updateStorageUsed(fileSize)
 
+    s3conf = file.storage_repo.toS3Config()
     conn.insert file
 
   except DbError, NotFoundError:
-    return result.none(500)
+    return result.none(500, "DAPDAP:" & getCurrentExceptionMsg())
 
-  some(address, 204)
+  address.some()
 
 export
   loadRequestRecord  

@@ -3,7 +3,10 @@ import
 
 import
   ../implement,
-  models/file as fm,
+  ../storage_repo/main
+
+import  
+  models/s3/file as fm,
   http/client
 
 type HuggingfaceUrl* = tuple
@@ -19,7 +22,7 @@ proc resolve*(file: fm.File; download = false) : ServiceValue[HuggingfaceUrl] =
       dl = block:
         if download: "?download=true"
         else: ""
-      repo = file.repo
+      repo = file.storage_repo.getRepoAddress()  
       httpUrl = "https://huggingface.co/buckets/$#/resolve/$#" % [repo, realAddress] & dl
       hfUrl = "hf://buckets/" & [repo, realAddress].join("/")
 

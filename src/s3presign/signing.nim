@@ -20,7 +20,7 @@ type
   SigningError* = object of ValueError
     ## Raised on structurally invalid signing input.
 
-func verbName(m: HttpMethod): string =
+func verbName*(m: HttpMethod): string =
   case m
   of HttpGet: "GET"
   of HttpHead: "HEAD"
@@ -59,7 +59,7 @@ proc canonicalQuery*(query: seq[QueryPair]): string =
     result.add '='
     result.add awsUriEncode(p.value)
 
-func hexLower(b: openArray[byte]): string =
+func hexLower*(b: openArray[byte]): string =
   const Digits = "0123456789abcdef"
   result = newString(b.len * 2)
   for i, x in b:
@@ -78,7 +78,12 @@ proc deriveSigningKey*(secretAccessKey, dateStamp, region, service: string): arr
   let kSigning = hmac(sha256, kService.data, RequestSuffix)
   result = kSigning.data
 
-func canonicalRequest(httpMethod: HttpMethod, canonicalUri, queryString,
+proc calculateSignature*(secretAccessKey, dateStamp, region, service, stringToSign: string): string =
+  ## Computes SigV4 hex signature for a given string to sign.
+  let key = deriveSigningKey(secretAccessKey, dateStamp, region, service)
+  result = hexLower(hmac(sha256, key, stringToSign).data)
+
+func canonicalRequest*(httpMethod: HttpMethod, canonicalUri, queryString,
                       host: string): string =
   verbName(httpMethod) & "\n" &
     canonicalUri & "\n" &

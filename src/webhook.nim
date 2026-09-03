@@ -6,7 +6,8 @@ import
   httpclient
 
 import
-  models/[garage, webhook],
+  models/all,
+  service/[implement, types],
   db
 
 type
@@ -62,7 +63,7 @@ proc sendPayload(conn: WebhookConnection; payload: WebhookPayload) : Future[Opti
       headers = headers
     )
 
-    return some response
+    return options.some response
 
   except Exception:
     none AsyncResponse
@@ -95,6 +96,10 @@ proc sendHook*[T](conn: WebhookConnection; event: string; data: T) =
       db.conn.update hookDelivery
 
   hookProcess.addCallback afterHookProcess
+
+proc sendHook*[T](hookConn: ServiceValue[WebhookConnection]; event: string; data: T) =
+  if hookConn.isSome:
+    hookConn.get.sendHook(event, data)
 
 export json
 

@@ -1,5 +1,5 @@
 import unittest, strutils
-import db, models/[garage, file], service/file/main, service/implement, publickey
+import db, models/all, service/file/main, service/implement, publickey
 
 suite "File Service Tests (DB Integration, Logic & Extreme Edge Cases)":
 
@@ -17,8 +17,8 @@ suite "File Service Tests (DB Integration, Logic & Extreme Edge Cases)":
   teardown:
     try:
       if testGarage.id != 0:
-        conn.exec(sql("DELETE FROM hfb_file WHERE garage = " & $testGarage.id))
-        conn.exec(sql("DELETE FROM hfb_garage WHERE id = " & $testGarage.id))
+        conn.exec(sql("DELETE FROM s3.file WHERE garage = " & $testGarage.id))
+        conn.exec(sql("DELETE FROM s3.garage WHERE id = " & $testGarage.id))
     except Exception as e:
       echo "Teardown error: ", e.msg
 
@@ -140,7 +140,7 @@ suite "File Service Tests (DB Integration, Logic & Extreme Edge Cases)":
     check emojiStatus.get.isUploaded == true
 
   test "Extreme Case: SQL Injection attack handling in File Key":
-    let sqliKey = "test_file.txt'; DROP TABLE hfb_file; --"
+    let sqliKey = "test_file.txt'; DROP TABLE s3.file; --"
     
     # select gracefully handles DbError and returns 404
     var emptyF = emptyFile()

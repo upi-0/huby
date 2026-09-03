@@ -1,7 +1,8 @@
 import
   query,
   ../garage/[main, query],
-  ../implement
+  ../implement,
+  ../owner/main
 
 from options import isNone, get
 
@@ -9,7 +10,7 @@ import
   strutils
 
 import  
-  models/[garage, file], db
+  models/all, db
 
 type
   FileObj* = ref object
@@ -38,8 +39,8 @@ proc newFileService*(garage: Garage; conn: DbConn) : FileService =
     query: FileQuery()
   )    
 
-proc newFileService*(grg: string) : ServiceValue[FileService] =
-  let gara = getGarageByField("name", grg)
+proc newFileService*(ownerId: int; grg: string) : ServiceValue[FileService] =
+  let gara = ownerId.getGarageByField("name", grg)
   
   if gara.isNone:
     return result.none gara
@@ -47,14 +48,16 @@ proc newFileService*(grg: string) : ServiceValue[FileService] =
   some newFileService(gara.get, conn)  
 
 proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] =
+  >> impl.conn.updateStorageUsed(impl.garage.owner, length, operator)
+
   let
     query = GarageQuery()
-    garageId = impl.garage.id
+    garageId = impl.garage.id    
     updateq = query.updateStorageUsed(garageId, length, operator)
     cintamu = impl.conn.getRow(sql updateq)
 
   if cintamu.isNone:
-    return result.none(403, "Limit Reached.")
+    return result.none(500, "Menuju Tanpa Dapdap")
 
   some cintamu.get[0].to(int)
 
@@ -63,7 +66,7 @@ proc status*(impl: FileService; key: string) : ServiceValue[FileStatus] =
 
   try:
     impl.conn.rawSelect(
-      impl.query.checkStatus(impl.garage.key, key),
+      impl.query.checkStatus(impl.garage.owner.secret_access_key, key),
       status
     )
 
@@ -85,7 +88,7 @@ proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj
   
   try:
     impl.conn.rawSelect(
-      impl.query.list(impl.garage.key, keyPrefix & ":", false),
+      impl.query.list(impl.garage.owner.secret_access_key, keyPrefix & ":", false),
       files
     )
 
@@ -101,7 +104,7 @@ proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue
   try:
     let safeKey = key.replace("'", "''")
     impl.conn.select(file, impl.query.select % [safeKey, $impl.garage.id])
-    some true
+    some(true)
 
   except NotFoundError, DbError:
     return result.none(404, "File Not Found")  

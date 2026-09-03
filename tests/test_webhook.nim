@@ -1,5 +1,5 @@
 import unittest, json, times, strutils, asyncdispatch, hmac
-import db, models/[garage, webhook], webhook, publickey, service/implement
+import db, models/all, webhook, publickey, service/implement
 
 suite "Webhook Service Tests (Extreme Edge Cases & Event Filtering)":
 
@@ -14,7 +14,7 @@ suite "Webhook Service Tests (Extreme Edge Cases & Event Filtering)":
     try:
       if testGarage.id != 0:
         conn.exec(sql("DELETE FROM webhook.deliveries WHERE garage = " & $testGarage.id))
-        conn.exec(sql("DELETE FROM hfb_garage WHERE id = " & $testGarage.id))
+        conn.exec(sql("DELETE FROM s3.garage WHERE id = " & $testGarage.id))
     except Exception as e:
       echo "Teardown error: ", e.msg
 
