@@ -6,7 +6,7 @@ import
   httpclient
 
 import
-  models/[garage, webhook],
+  models/all,
   service/[implement, types],
   db
 

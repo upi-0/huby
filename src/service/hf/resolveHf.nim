@@ -6,7 +6,7 @@ import
   ../storage_repo/main
 
 import  
-  models/file as fm,
+  models/s3/file as fm,
   http/client
 
 type HuggingfaceUrl* = tuple

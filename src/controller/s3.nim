@@ -3,19 +3,18 @@ import
   strutils, asyncdispatch
 
 import
-  models/file, models/storage_repo, db
+  models/all, db
 
 import  
   s3presign/main,
   service/hf/uploadHf,
   service/file/[main, adapter],
+  service/owner/main,
   service/storage_repo/main,
   service/[types, implement],
   service/presigned/[utils, general, types]
 
 proc getFileStorageConfig*(impl: FileService, key: string, file: var FileModel): ServiceValue[tuple[s3conf: S3Config, bucket: string, address: string]] =
-  ## Fetches the file record from the database and derives its bound S3Config,
-  ## underlying storage repository bucket name, and backend storage address.
   let sel = impl.select(key, file)
   if sel.isNone:
     return result.none(404, "File not found")
@@ -28,9 +27,11 @@ proc getFileStorageConfig*(impl: FileService, key: string, file: var FileModel):
     if r.isNone:
       return result.none(500, "Storage repository not found in database")
 
-  let s3conf = file.storage_repo.toS3Config()
-  let bucket = file.storage_repo.bucket
-  let address = file.address
+  let
+    s3conf = file.storage_repo.toS3Config()
+    bucket = file.storage_repo.bucket
+    address = file.address
+  
   implement.some((s3conf: s3conf, bucket: bucket, address: address))
 
 proc handlePutObject*(
@@ -39,7 +40,7 @@ proc handlePutObject*(
     key: string,
     contentLength: int
 ): ServiceValue[string] =
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpPut)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpPut)
   if resolve.isNone:
     return result.none(resolve.status, resolve.errorReason)
 
@@ -57,9 +58,11 @@ proc handlePutObject*(
     return result.none(addrRes.status, addrRes.errorReason)
 
   var file = emptyFile()
-  let cfgRes = impl.getFileStorageConfig(key, file)
-  let bucket = if cfgRes.isSome: cfgRes.get.bucket else: "exx"
-  let targetUrl = s3conf.presignPut(bucket, addrRes.get)
+  let
+    cfgRes = impl.getFileStorageConfig(key, file)
+    bucket = if cfgRes.isSome: cfgRes.get.bucket else: "exx"
+    targetUrl = s3conf.presignPut(bucket, addrRes.get)
+  
   implement.some(targetUrl)
 
 proc handleGetObject*(
@@ -67,9 +70,9 @@ proc handleGetObject*(
     url: string,
     key: string
 ): ServiceValue[string] =
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpGet)
-  if resolve.isNone:
-    return result.none(resolve.status, resolve.errorReason)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpGet)
+  
+  >> resolve
 
   var
     file = emptyFile()
@@ -89,7 +92,7 @@ proc handleHeadObject*(
     url: string,
     key: string
 ): ServiceValue[string] =
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpHead)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpHead)
   if resolve.isNone:
     return result.none(resolve.status, resolve.errorReason)
 
@@ -106,7 +109,7 @@ proc handleDeleteObject*(
     url: string,
     key: string
 ): Future[ServiceValue[string]] {.async.} =
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpDelete)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpDelete)
   if resolve.isNone:
     return result.none(resolve.status, resolve.errorReason)
 
@@ -126,7 +129,7 @@ proc handleCreateMultipartUpload*(
     key: string,
     contentLength: int
 ): ServiceValue[string] =
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpPost)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpPost)
   if resolve.isNone:
     return result.none(resolve.status, resolve.errorReason)
 
@@ -161,7 +164,7 @@ proc handlePutPart*(
   if partNumber < 1 or partNumber > MaxParts:
     return result.none(400, "Invalid partNumber: must be between 1 and " & $MaxParts)
 
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpPut)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpPut)
   if resolve.isNone:
     return result.none(resolve.status, resolve.errorReason)
 
@@ -187,7 +190,7 @@ proc handleCompleteMultipartUpload*(
   if uploadId.len == 0:
     return result.none(400, "Missing uploadId parameter")
 
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpPost)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpPost)
   if resolve.isNone:
     return result.none(resolve.status, resolve.errorReason)
 
@@ -218,7 +221,7 @@ proc handleAbortMultipartUpload*(
   if uploadId.len == 0:
     return result.none(400, "Missing uploadId parameter")
 
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpDelete)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpDelete)
   if resolve.isNone:
     return result.none(resolve.status, resolve.errorReason)
 
@@ -250,7 +253,7 @@ proc handleListParts*(
   if uploadId.len == 0:
     return result.none(400, "Missing uploadId parameter")
 
-  let resolve = resolveS3(url, impl.garage.key, httpMethod = HttpGet)
+  let resolve = resolveS3(url, impl.garage.owner.secret_access_key, httpMethod = HttpGet)
   if resolve.isNone:
     return result.none(resolve.status, resolve.errorReason)
 
@@ -299,9 +302,9 @@ proc s3handler*(ctx: Context) {.async.} =
   let
     url = payload["url"].str
     reqMethod = payload.getOrDefault("method").getStr("GET").toUpperAscii()
+    cleanUrl = url.replace("http://").replace("https://").split("?")[0]
+    path = cleanUrl.split("/")
 
-  let cleanUrl = url.replace("http://").replace("https://").split("?")[0]
-  let path = cleanUrl.split("/")
   if path.len < 3:
     await ctx.send(%*{"error": "Invalid URL format: expected http://host/owner/bucket/key"}, Http400)
     return
@@ -309,7 +312,9 @@ proc s3handler*(ctx: Context) {.async.} =
   let
     owner = path[1]
     bucket = path[2]
-    impl = newFileService(bucket)
+    id = owner.ownerId()
+    impl = newFileService(id.get, bucket)
+
   discard owner
 
   if impl.isNone:

@@ -5,6 +5,7 @@ import
   service/implement,
   service/presigned/[general, types],
   service/file/main,
+  service/owner/main,
   webhook  
 
 type
@@ -120,10 +121,10 @@ proc retrieve*(ctx: Context; actionName: string, json = false) : tuple[
   hook: ServiceValue[WebhookConnection]
 ] =
   block:
-    result.impl = newFileService ctx.getPathParams("garage_name")
+    result.impl = newFileService(1, ctx.getPathParams("garage_name"))
     result.meta = block:
-      if not json: ctx.getMeta(result.impl.get.garage.key, actionName)
-      else: resolveJWT(ctx.getPathParams("jwt_val"), result.impl.get.garage.key).get()
+      if not json: ctx.getMeta(result.impl.get.garage.owner.secret_access_key, actionName)
+      else: resolveJWT(ctx.getPathParams("jwt_val"), result.impl.get.garage.owner.secret_access_key).get()
     result.hook = none(WebhookConnection, 0)
 
   let
@@ -141,7 +142,7 @@ proc retrieve*(ctx: Context; actionName: string, json = false) : tuple[
 
     result.hook = implement.some createWebhookConnection(
       garageId = result.impl.get.garage.id,
-      garageKey = result.impl.get.garage.key,
+      garageKey = result.impl.get.garage.owner.secret_access_key,
       origin = origin,
       endpoint = endpoint
     )

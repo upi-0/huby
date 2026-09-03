@@ -2,8 +2,7 @@ import
   strutils
 
 import
-  query,
-  models/storage_repo, db
+  models/storage/repo, db
 
 import
   service/[implement, types],
@@ -25,7 +24,7 @@ proc getIdleStorageRepo*(fcon: DbConn): ServiceValue[StorageRepo] =
 
 proc selectRepo*(fcon: DbConn; id: int; repo: var StorageRepo): ServiceValue[bool] =
   try:
-    fcon.select(repo, "hfb_storage_repo.id = $#" % $id)
+    fcon.select(repo, "storage.repo.id = $#" % $id)
     some(true)
 
   except:

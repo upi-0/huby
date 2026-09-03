@@ -5,7 +5,8 @@ import
 import
   ../[types, implement],
   ../hf/uploadHf,
-  ../multipart
+  ../multipart,
+  ../storage_repo/main
 
 import  
   http/client,
@@ -16,7 +17,7 @@ import
   env
 
 import
-  models/[garage, file],
+  models/all,
   db
 
 type
@@ -35,13 +36,13 @@ proc completeMigrate*(returning: JsonNode) : Future[int] {.async.} =
     key = returning["key"].str
     garage = returning["garage"].str
     uploadId = returning["uploadId"].str
-    impl = newFileService(garage)
+    impl = newFileService(1, garage)
 
   >> impl.get.select(key, file)
 
   let
     httpClient = hc[].client
-    meta = file.repo.split("/")
+    meta = file.storage_repo.getRepoAddress.split("/")
     s3Client = s3GenerateConf(meta[0])
     mpClient = MultipartClient(
       conf: s3Client,
