@@ -292,7 +292,7 @@ proc resolveRedirectFile*(impl: FileService; key: string; download = false) : Fu
 proc putFile*(
   impl: FileService;
   key: string;
-  fileSize: int;
+  contentLength: int;
   record: UploadRequestRecord;
   replace = false;
   uploaded = true;
@@ -301,6 +301,10 @@ proc putFile*(
   var
     file = newFile(impl.garage)
     address = record.address
+    fileSize = contentLength div 1024
+
+  if fileSize < 1:
+    fileSize = 1    
 
   let exists = impl.exists(key).get
 

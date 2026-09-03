@@ -81,7 +81,7 @@ proc requestMigrate*(impl: FileService, key: string, data: MigrateData) : Future
     url = [getEnv("WORKER_URL"), impl.garage.name, "migrate"].join("/")
     address = impl.putFile(
       key= data.key,
-      fileSize= data.contentLength,
+      contentLength= data.contentLength,
       record= loadRequestRecord(data.filename),
       replace= true,
       uploaded= false,

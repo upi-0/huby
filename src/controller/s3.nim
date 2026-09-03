@@ -40,7 +40,7 @@ proc s3handler*(ctx: Context) {.async.} =
     impl = newFileService(bucket)
 
   var
-    targetUrl: string
+    targetUrl, key: string
     s3 = new S3Config
     resolve: ServiceValue[MetaObj]
 
@@ -54,14 +54,15 @@ proc s3handler*(ctx: Context) {.async.} =
 
   if reqMethod == "PUT":
     resolve = resolveS3(
-      url,
-      impl.get.garage.key,
+      url, impl.get.garage.key,
       httpMethod=HttpPut
     )
 
+    key = resolve.get.key.split("/")[2 .. ^1].join("/")
+
     targetUrl = get impl.get.putFile(
-      key=resolve.get.key,
-      fileSize=contentLength,
+      key=key,
+      contentLength=contentLength,
       record=record,
       replace=true,
       uploaded=true,
