@@ -191,12 +191,12 @@ proc resolveS3*(
   if expiresSeconds < 1 or expiresSeconds > MaxExpirySeconds:
     return result.none(400, "X-Amz-Expires out of range")
 
+  if not params.hasKey("X-Amz-Signature"):
+    return result.none(400, "Missing X-Amz-Signature")
+
   let expiryTime = requestTime + initDuration(seconds = expiresSeconds)
   if getTime().utc > expiryTime:
     return result.none(419, "Expired")
-
-  if not params.hasKey("X-Amz-Signature"):
-    return result.none(400, "Missing X-Amz-Signature")
 
   let expectedSignature = params["X-Amz-Signature"].toLowerAscii()
 

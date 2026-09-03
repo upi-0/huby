@@ -202,7 +202,7 @@ proc delete*(
     impl: FileService;
     key: string;
     hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
-  ) : Future[ServiceValue[string]] {.async.} =
+  ) : Future[ServiceValue[string]] {.async, deprecated: "3-9-2026".} =
   var file = newFile impl.garage
   
   >> impl.select(key, file)

@@ -67,6 +67,23 @@ proc presignPutPart*(cfg: S3Config; bucket, key, uploadId: string; totalPartNumb
       ]
     result.add presignRequest(cfg, HttpPut, t.baseUrl, t.canonicalUri, q, at=getTime().utc)
 
+proc presignUploadPart*(cfg: S3Config; bucket, key, uploadId: string; partNumber: int;
+                        at: DateTime = getTime().utc): string =
+  ## One presigned PUT for a specific partNumber and uploadId.
+  cfg.validate()
+  if uploadId.len == 0:
+    raise newException(MultipartError, "uploadId must not be empty")
+  if partNumber < 1 or partNumber > MaxParts:
+    raise newException(MultipartError, "partNumber must be between 1 and " & $MaxParts)
+  let t = resolveObjectTarget(cfg, bucket, key)
+  let q = @[("partNumber", $partNumber), ("uploadId", uploadId)]
+  presignRequest(cfg, HttpPut, t.baseUrl, t.canonicalUri, q, at = at)
+
+proc presignPutPart*(cfg: S3Config; bucket, key, uploadId: string; partNumber: int;
+                     at: DateTime = getTime().utc): string {.inline.} =
+  ## Alias for presignUploadPart.
+  presignUploadPart(cfg, bucket, key, uploadId, partNumber, at)
+
 proc presignUploadParts*(cfg: S3Config, bucket, key, uploadId: string,
                          contentLength: int64,
                          at: DateTime = getTime().utc): seq[PresignedPart] =
