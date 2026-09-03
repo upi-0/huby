@@ -1,4 +1,3 @@
-import webhook
 import types; export types
 
 template `>>`*[T](sv: ServiceValue[T]) =
@@ -51,9 +50,4 @@ proc isNone*[T](sv: ServiceValue[T]) : bool =
 proc get*[T](sv: ServiceValue[T]) : T =
   >> sv
   sv.value
-
-proc sendHook*[T](hookConn: ServiceValue[WebhookConnection]; event: string; data: T) =
-  echo "SENDING HOOK~!"
-  if hookConn.isSome:
-    hookConn.get.sendHook(event, data)
 

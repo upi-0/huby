@@ -2,7 +2,11 @@ import
   prologue, json, tables, strutils
 
 import
-  service/implement  
+  service/implement,
+  service/presigned/[general, types],
+  service/file/main,
+  service/owner/main,
+  webhook  
 
 type
   IpUa* = tuple
@@ -39,7 +43,7 @@ proc send*[T: string | JsonNode](ctx: Context; body: T, code = Http200) {.async.
     else:
       illall["error"] = %body
 
-    text = $illall  
+    text = $body
 
   ctx.response.body = ""
 
@@ -103,3 +107,42 @@ template `||`*[T](sv: ServiceValue[T]) =
 
 template `??`*[T](sv: ServiceValue[T]) {.deprecated.} =
   >> sv
+
+proc getMeta*(ctx: Context; privateKey, action: string): MetaObj =
+  resolve(
+    ctx.request.query,
+    privateKey,
+    action
+  ).get()
+
+proc retrieve*(ctx: Context; actionName: string, json = false) : tuple[
+  impl: ServiceValue[FileService],
+  meta: MetaObj,
+  hook: ServiceValue[WebhookConnection]
+] =
+  block:
+    result.impl = newFileService(1, ctx.getPathParams("garage_name"))
+    result.meta = block:
+      if not json: ctx.getMeta(result.impl.get.garage.owner.secret_access_key, actionName)
+      else: resolveJWT(ctx.getPathParams("jwt_val"), result.impl.get.garage.owner.secret_access_key).get()
+    result.hook = none(WebhookConnection, 0)
+
+  let
+    webhookConf = result.meta.config.getOrDefault("webhook")
+    useHook = webhookConf.getOrDefault("use").getBool(false)
+    requestOrigin = ctx.request.headers.table.getOrDefault("origin", @[""])
+
+  if useHook:
+    let
+      endpoint = webhookConf.getOrDefault("endpoint").getStr("/webhook/huby")
+      origin = webhookConf.getOrDefault("origin").getStr requestOrigin[0]
+
+    if origin.len < 1:
+      ctx.abortExit(Http400, "Invalid origin while using webhook.")
+
+    result.hook = implement.some createWebhookConnection(
+      garageId = result.impl.get.garage.id,
+      garageKey = result.impl.get.garage.owner.secret_access_key,
+      origin = origin,
+      endpoint = endpoint
+    )

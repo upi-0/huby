@@ -1,5 +1,5 @@
-import prologue, controller/bridge
+import prologue, controller/s3
 
 let bridgeUrls* = @[
-  pattern("/generate-record", generateRecord, [HttpPost])
+  pattern("/s3", s3handler, [HttpGet, HttpPut, HttpPost])
 ]
