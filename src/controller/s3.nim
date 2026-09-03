@@ -7,7 +7,7 @@ import
 
 import  
   s3presign/main,
-  service/hf/uploadHf,
+  service/hf/[uploadHf, resolveHf],
   service/file/[main, adapter],
   service/owner/main,
   service/storage_repo/main,
@@ -84,7 +84,7 @@ proc handleGetObject*(
   if not file.isUploaded:
     return result.none(404)
 
-  let targetUrl = cfgRes.get.s3conf.presignGet(cfgRes.get.bucket, cfgRes.get.address)
+  let targetUrl = file.resolve.get.httpUrl
   implement.some(targetUrl)
 
 proc handleHeadObject*(
@@ -287,12 +287,15 @@ proc s3handler*(ctx: Context) {.async.} =
     await ctx.send("", Http204)
     return
 
-  let body = ctx.request.body()
   var payload: JsonNode
   try:
-    payload = parseJson(body)
+    payload = %*{
+      "url": ctx.getQueryParams("url"),
+      "contentLength": ctx.getQueryParams("contentLength"),
+      "method": ctx.getQueryParams("method")
+    }
   except Exception:
-    await ctx.send(%*{"error": "Invalid JSON body"}, Http400)
+    await ctx.send(%*{"error": getCurrentExceptionMsg()}, Http400)
     return
 
   if not payload.hasKey("url"):
