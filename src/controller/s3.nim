@@ -294,6 +294,8 @@ proc s3handler*(ctx: Context) {.async.} =
       "contentLength": ctx.getQueryParams("contentLength"),
       "method": ctx.getQueryParams("method")
     }
+    echo "QUERY_PARAMS: " & $payload
+
   except Exception:
     await ctx.send(%*{"error": getCurrentExceptionMsg()}, Http400)
     return
