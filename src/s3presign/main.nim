@@ -32,7 +32,7 @@ export multipart
 
 import env
 
-proc s3GenerateConf*(namespace: string) : S3Config = 
+proc s3GenerateConf*(namespace: string) : S3Config {.deprecated: "2-9-2026".} = 
   S3Config(
     accessKeyId:getEnv("S3_ACCESS_KEY"),
     secretAccessKey:getEnv("S3_SECRET_ACCESS_KEY"),
@@ -42,4 +42,28 @@ proc s3GenerateConf*(namespace: string) : S3Config =
     expiresSeconds: 3600,
     multipartThreshold: 2'i64 * 1024 * 1024 * 1024,
     multipartChunkSize: 2'i64 * 1024 * 1024 * 1024
+  )
+
+proc r2GenerateConf*() : S3Config = 
+  S3Config(
+    accessKeyId:getEnv("R2_ACCESS_KEY"),
+    secretAccessKey:getEnv("R2_SECRET_ACCESS_KEY"),
+    region:"auto",
+    forcePathStyle:true,
+    endpoint: getEnv("R2_ENDPOINT"),
+    expiresSeconds: 3600,
+    multipartThreshold: 4'i64 * 1024 * 1024 * 1024,
+    multipartChunkSize: 4'i64 * 1024 * 1024 * 1024
+  )
+
+proc clientGenerateConf*(endpoint, accessKey, privateKey: string) : S3Config =
+  S3Config(
+    accessKeyId: accessKey,
+    secretAccessKey: privateKey,
+    region: "sunarso-1",
+    forcePathStyle: true,
+    endpoint: endpoint,
+    expiresSeconds: 3600,
+    multipartThreshold: 95'i64 * 1024 * 1024,
+    multipartChunkSize: 95'i64 * 1024 * 1024    
   )

@@ -1,7 +1,9 @@
 import
   query,
   ../garage/[main, query],
-  ../implement
+  ../implement,
+  ../owner/main,
+  asyncdispatch
 
 from options import isNone, get
 
@@ -9,7 +11,7 @@ import
   strutils
 
 import  
-  models/[garage, file], db
+  models/all, db
 
 type
   FileObj* = ref object
@@ -38,32 +40,25 @@ proc newFileService*(garage: Garage; conn: DbConn) : FileService =
     query: FileQuery()
   )    
 
-proc newFileService*(grg: string) : ServiceValue[FileService] =
-  let gara = getGarageByField("name", grg)
+proc newFileService*(ownerId: int; grg: string) : Future[ServiceValue[FileService]] {.gcsafe, async.} =
+  let
+    gara = ownerId.getGarageByField("name", grg)
+    db = await tryPopDb()
   
   if gara.isNone:
     return result.none gara
+  
+  some newFileService(gara.get, db)
 
-  some newFileService(gara.get, conn)  
-
-proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] =
-  let
-    query = GarageQuery()
-    garageId = impl.garage.id
-    updateq = query.updateStorageUsed(garageId, length, operator)
-    cintamu = impl.conn.getRow(sql updateq)
-
-  if cintamu.isNone:
-    return result.none(403, "Limit Reached.")
-
-  some cintamu.get[0].to(int)
+proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] {.deprecated: "2026-09-05".} =
+  impl.conn.updateStorageUsed(impl.garage.owner, length, operator)
 
 proc status*(impl: FileService; key: string) : ServiceValue[FileStatus] =
   var status = new FileStatus
 
   try:
     impl.conn.rawSelect(
-      impl.query.checkStatus(impl.garage.key, key),
+      impl.query.checkStatus(impl.garage.owner.secret_access_key, key),
       status
     )
 
@@ -85,7 +80,7 @@ proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj
   
   try:
     impl.conn.rawSelect(
-      impl.query.list(impl.garage.key, keyPrefix & ":", false),
+      impl.query.list(impl.garage.owner.secret_access_key, keyPrefix & ":", false),
       files
     )
 
@@ -99,12 +94,12 @@ proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj
 
 proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue[bool] =
   try:
-    let safeKey = key.replace("'", "''")
-    impl.conn.select(file, impl.query.select % [safeKey, $impl.garage.id])
-    some true
+    file = emptyFile()
+    impl.conn.select(file, impl.query.select % [key, $impl.garage.id])
+    implement.some(true)
 
   except NotFoundError, DbError:
-    return result.none(404, "File Not Found")  
+    return result.none(404, getCurrentExceptionMsg())  
 
 proc setPersistAccess*(impl: FileService; key: string; to: bool) : ServiceValue[bool] =
   var file = emptyFile()

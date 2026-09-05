@@ -68,7 +68,10 @@ proc resolveEndpoint*(cfg: S3Config, bucket: string): ResolvedEndpoint =
     if not pathStyle and not dnsCompatibleBucket(bucket):
       pathStyle = true
     if pathStyle:
-      result.basePath.add "/" & awsUriEncode(bucket)
+      let slash = block:
+        if bucket.len == 0: bucket
+        else: "/"
+      result.basePath.add slash & awsUriEncode(bucket)
     else:
       result.authority = bucket & "." & result.authority
   if cfg.endpoint.len == 0 and pathStyle:
@@ -91,8 +94,6 @@ func objectTarget(ep: ResolvedEndpoint, key: string): Target =
 proc resolveObjectTarget*(cfg: S3Config, bucket, key: string): Target =
   ## Validates inputs and returns base URL + canonical path for an object.
   cfg.validate()
-  if bucket.len == 0:
-    raise newException(UrlError, "bucket must not be empty")
   if '/' in bucket:
     raise newException(UrlError, "bucket must not contain '/', got: " & bucket)
   if key.len == 0:

@@ -8,7 +8,7 @@ import
   service/implement,
   env
 
-proc copyProcess(ayang: ref bool; oldFileUrl, newFileUrl: string) {.async.} =
+proc copyProcess(ayang: ref bool; oldFileUrl, newFileUrl, uploadToken: string) {.async.} =
   let
     app = block:
       if not defined(windows): getHomeDir() / ".local" / "bin" / "hf"
@@ -17,6 +17,8 @@ proc copyProcess(ayang: ref bool; oldFileUrl, newFileUrl: string) {.async.} =
       "buckets", "cp",
       oldFileUrl,
       newFileUrl,
+      "--token",
+      uploadToken
     ]
     process = startProcess(app, ".", commands)
 
@@ -38,11 +40,11 @@ proc copyProcess(ayang: ref bool; oldFileUrl, newFileUrl: string) {.async.} =
   ayang[] = false
 
 
-proc renameFile*(fileAddress: string, targetFileName: string) : Future[ServiceValue[string]] {.async.} =
+proc renameFile*(fileAddress, targetFileName, uploadToken, repo: string) : Future[ServiceValue[string]] {.async.} =
   let
     ayang = new bool
     sanitizedTarget = sanitizeFsFileName(targetFileName)
-    bucketUrl = "hf://buckets/" & getEnv("HF_REPO")
+    bucketUrl = "hf://buckets/" & repo
     originalFileUrl = [bucketUrl, fileAddress].join("/")
     targetFileAddress = [fileAddress.getDirName(), sanitizedTarget].join("/")
     targetFileUrl = [bucketUrl, targetFileAddress].join("/")
@@ -51,7 +53,7 @@ proc renameFile*(fileAddress: string, targetFileName: string) : Future[ServiceVa
     echo originalFileUrl
     echo targetFileName
 
-    await copyProcess(ayang, originalFileUrl, targetFileUrl)
+    await copyProcess(ayang, originalFileUrl, targetFileUrl, uploadToken)
     
     if not ayang[]:
       return result.none(500, "rename - Failed copying file.")
@@ -63,10 +65,3 @@ proc renameFile*(fileAddress: string, targetFileName: string) : Future[ServiceVa
       return some targetFileAddress
 
   return result.none(500, "rename - Unknown Error")
-
-proc test =
-  let resp = waitFor renameFile("huby/2026-8-20/aca496e9-47cf-4f8b-8fdd-287b03924ac7/wahyu.png", "rijal.png")
-  assert resp.isSome
-
-when isMainModule:
-  test()

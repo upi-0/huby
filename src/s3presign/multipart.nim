@@ -15,7 +15,7 @@ type
   PresignedPart* = object
     partNumber*: int   ## 1-based part number expected by S3
     offset*: int64     ## byte offset of this part within the source object
-    size*: int64       ## bytes belonging to this part (last one may be smaller)
+    last*: int64
     url*: string       ## presigned PUT for UploadPart
 
   PartSlice* = tuple[offset, size: int64]
@@ -57,6 +57,33 @@ proc presignCreateMultipartUpload*(cfg: S3Config, bucket, key: string,
   presignRequest(cfg, HttpPost, t.baseUrl, t.canonicalUri,
                  @[("uploads", "")], at = at)
 
+proc presignPutPart*(cfg: S3Config; bucket, key, uploadId: string; totalPartNumber: int) : seq[string] =
+  for num in 1 .. totalPartNumber:
+    let
+      t = resolveObjectTarget(cfg, bucket, key)
+      q = @[
+        ("partNumber", $num),
+        ("uploadId", uploadId)
+      ]
+    result.add presignRequest(cfg, HttpPut, t.baseUrl, t.canonicalUri, q, at=getTime().utc)
+
+proc presignUploadPart*(cfg: S3Config; bucket, key, uploadId: string; partNumber: int;
+                        at: DateTime = getTime().utc): string =
+  ## One presigned PUT for a specific partNumber and uploadId.
+  cfg.validate()
+  if uploadId.len == 0:
+    raise newException(MultipartError, "uploadId must not be empty")
+  if partNumber < 1 or partNumber > MaxParts:
+    raise newException(MultipartError, "partNumber must be between 1 and " & $MaxParts)
+  let t = resolveObjectTarget(cfg, bucket, key)
+  let q = @[("partNumber", $partNumber), ("uploadId", uploadId)]
+  presignRequest(cfg, HttpPut, t.baseUrl, t.canonicalUri, q, at = at)
+
+proc presignPutPart*(cfg: S3Config; bucket, key, uploadId: string; partNumber: int;
+                     at: DateTime = getTime().utc): string {.inline.} =
+  ## Alias for presignUploadPart.
+  presignUploadPart(cfg, bucket, key, uploadId, partNumber, at)
+
 proc presignUploadParts*(cfg: S3Config, bucket, key, uploadId: string,
                          contentLength: int64,
                          at: DateTime = getTime().utc): seq[PresignedPart] =
@@ -73,8 +100,10 @@ proc presignUploadParts*(cfg: S3Config, bucket, key, uploadId: string,
     let url = presignRequest(cfg, HttpPut, t.baseUrl, t.canonicalUri,
                              @[("partNumber", $(i + 1)), ("uploadId", uploadId)],
                              at = at)
+    let
+      last = slice.offset + slice.size - 1
     result.add PresignedPart(partNumber: i + 1, offset: slice.offset,
-                             size: slice.size, url: url)
+                             url: url, last: last)
 
 proc presignCompleteMultipartUpload*(cfg: S3Config, bucket, key, uploadId: string,
                                      at: DateTime = getTime().utc): string =
@@ -84,8 +113,15 @@ proc presignCompleteMultipartUpload*(cfg: S3Config, bucket, key, uploadId: strin
                  @[("uploadId", uploadId)], at = at)
 
 proc presignAbortMultipartUpload*(cfg: S3Config, bucket, key, uploadId: string,
-                                  at: DateTime = getTime().utc): string =
+                                   at: DateTime = getTime().utc): string =
   ## Presigned ``DELETE ?uploadId=...``.
   let t = resolveObjectTarget(cfg, bucket, key)
   presignRequest(cfg, HttpDelete, t.baseUrl, t.canonicalUri,
+                 @[("uploadId", uploadId)], at = at)
+
+proc presignListParts*(cfg: S3Config, bucket, key, uploadId: string,
+                       at: DateTime = getTime().utc): string =
+  ## Presigned ``GET ?uploadId=...`` (``ListParts``); lists uploaded parts.
+  let t = resolveObjectTarget(cfg, bucket, key)
+  presignRequest(cfg, HttpGet, t.baseUrl, t.canonicalUri,
                  @[("uploadId", uploadId)], at = at)

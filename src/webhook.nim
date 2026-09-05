@@ -6,7 +6,8 @@ import
   httpclient
 
 import
-  models/[garage, webhook],
+  models/all,
+  service/[implement, types],
   db
 
 type
@@ -37,13 +38,17 @@ proc createWebhookConnection*(garageKey, origin, endpoint: string; garageId: int
 
 proc sendPayload(conn: WebhookConnection; payload: WebhookPayload) : Future[Option[AsyncResponse]] {.async.} =
   let
-    client: AsyncHttpClient = hc[].client
+    http: HttpConnection = inheritHttpConnection()
+    client = http.client
     body = $(%*payload)
     headers = newHttpHeaders {
       "content-type": "application/json",
       "x-huby-creator" : "github.com/upi-0",
       "x-huby-signature-256" : "sha256=" & hmac_sha256(conn.garageKey, body).toHex()
     }
+
+  defer:
+    http.stop()
 
   var
     response: AsyncResponse
@@ -62,7 +67,7 @@ proc sendPayload(conn: WebhookConnection; payload: WebhookPayload) : Future[Opti
       headers = headers
     )
 
-    return some response
+    return options.some response
 
   except Exception:
     none AsyncResponse
@@ -95,6 +100,10 @@ proc sendHook*[T](conn: WebhookConnection; event: string; data: T) =
       db.conn.update hookDelivery
 
   hookProcess.addCallback afterHookProcess
+
+proc sendHook*[T](hookConn: ServiceValue[WebhookConnection]; event: string; data: T) =
+  if hookConn.isSome:
+    hookConn.get.sendHook(event, data)
 
 export json
 

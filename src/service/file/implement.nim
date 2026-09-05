@@ -1,7 +1,7 @@
 import
   query, ../implement
 import
-  models/[garage, file], db
+  models/all, db
 
 type
   FileObj* = ref object

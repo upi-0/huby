@@ -45,3 +45,23 @@ proc update*[T: Model](dbConn: DbConn; obj: var T) =
     qry = "UPDATE $# SET $# WHERE id = $#" % [T.table, phds.join(", "), $obj.id]
 
   dbConn.exec(sql qry, row)
+
+proc update*[T: Model](dbConn: DbConn; obj: var T; updateFields: openArray[string]) =
+  checkRo(T)
+
+  var phds: seq[string]
+  let row = obj.toRow()
+
+  for i, col in obj.cols:
+    if updateFields.contains(col):
+      case row[i].kind
+      of dvkString:
+        phds.add "$# = '$#'" % [col, row[i].s]
+      of dvkBool:
+        phds.add "$# = $#" % [col, if row[i].b: "TRUE" else: "FALSE"]
+      else:
+        phds.add "$# = $#" % [col, $(row[i])]
+    
+  if phds.len > 0:
+    let qry = "UPDATE $# SET $# WHERE id = $#" % [T.table, phds.join(", "), $obj.id]
+    dbConn.exec(sql qry, row)

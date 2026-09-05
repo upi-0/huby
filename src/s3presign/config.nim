@@ -5,7 +5,7 @@ runnableExamples:
   validate(cfg)
 
 type
-  S3Config* = object
+  S3Config* = ref object
     accessKeyId*: string       ## AWS access key ID
     secretAccessKey*: string   ## Secret access key
     region*: string            ## Region, e.g. ``us-east-1`` (``auto`` for Cloudflare R2)
@@ -39,7 +39,7 @@ proc initS3Config*(accessKeyId, secretAccessKey, region: string): S3Config =
     region: region,
     sessionToken: "",
     endpoint: "",
-    forcePathStyle: false,
+    forcePathStyle: true,
     expiresSeconds: DefaultExpirySeconds,
     multipartThreshold: DefaultMultipartThreshold,
     multipartChunkSize: DefaultMultipartChunkSize,

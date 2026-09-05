@@ -63,7 +63,7 @@ suite "Presigned Service Tests (Extreme Edge Cases & Validation)":
   test "Extreme Case: SQL Injection & XSS Payloads inside key & config":
     let
       futureTime = $ (getTime().toUnix() + 3600)
-      sqliKey = "'; DROP TABLE hfb_file; DROP TABLE hfb_garage; --"
+      sqliKey = "'; DROP TABLE s3.file; DROP TABLE s3.garage; --"
       xssConfig = $(%*{
         "payload": "<script>alert('XSS');</script>",
         "sql": "1' OR '1'='1",

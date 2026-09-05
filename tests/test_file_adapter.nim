@@ -1,5 +1,5 @@
 import unittest, os, asyncdispatch, json, strutils, times
-import db, models/[garage, file, webhook], service/file/[main, adapter], service/hf/[uploadHf, resolveHf, deleteHf, renameHf, utils], webhook, publickey, service/implement
+import db, models/all, service/file/[main, adapter], service/hf/[uploadHf, resolveHf, deleteHf, renameHf, utils], webhook, publickey, service/implement
 
 type
   GridParam* = object
@@ -149,8 +149,6 @@ suite "File Adapter Service GridSearchCV Parameterized Lifecycle Suite":
   setup:
     if testGarage.isNil or testGarage.id == 0:
       testGarage = newGarage()
-      testGarage.storage_used = 0
-      testGarage.max_storage = 10485760 # 10 MB limit for grid tests
       conn.insert(testGarage)
       testFileService = newFileService(testGarage, conn)
 
@@ -533,7 +531,7 @@ suite "File Adapter Service GridSearchCV Parameterized Lifecycle Suite":
     try:
       waitFor sleepAsync(1000)
       conn.exec(sql("DELETE FROM webhook.deliveries WHERE garage = " & $testGarage.id))
-      conn.exec(sql("DELETE FROM hfb_file WHERE garage = " & $testGarage.id))
-      conn.exec(sql("DELETE FROM hfb_garage WHERE id = " & $testGarage.id))
+      conn.exec(sql("DELETE FROM s3.file WHERE garage = " & $testGarage.id))
+      conn.exec(sql("DELETE FROM s3.garage WHERE id = " & $testGarage.id))
     except Exception as e:
       echo "Final Teardown error: ", e.msg

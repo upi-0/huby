@@ -10,7 +10,7 @@ import
   json, times, strutils
 
 import
-  db, models/file
+  db, models/all
 
 import
   env, types
@@ -83,7 +83,7 @@ proc generateUrl*(ip, ua, key: string; replace = false) : ServiceValue[string] {
   if key == "":
     return result.none(400, "`key` as `k` is required.")
 
-  let fileExist = conn.exists(FileModel, "hfb_file.key = '$#'" % key)
+  let fileExist = conn.exists(FileModel, "s3.file.key = '$#'" % key)
   var repl = "upload"
 
   if replace and fileExist:
