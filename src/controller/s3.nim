@@ -328,6 +328,7 @@ proc s3handler*(ctx: Context) {.async.} =
     owner = path[1]
     bucket = path[2]
     id = owner.ownerId()
+    re = newJObject()
     impl = await newFileService(id.get, bucket)
 
   defer:
@@ -392,6 +393,7 @@ proc s3handler*(ctx: Context) {.async.} =
       opResult = impl.get.handleListParts(url, key, uploadId)
     else:
       opResult = impl.get.handleGetObject(url, key)
+    re["cached_secret_access_key"] = %impl.get.garage.owner.secret_access_key
 
   of "DELETE":
     if uploadId.len > 0:
@@ -410,4 +412,6 @@ proc s3handler*(ctx: Context) {.async.} =
     await ctx.send(%*{"error": opResult.errorReason}, HttpCode(opResult.status))
     return
 
-  await ctx.send %*{"url": opResult.get}
+  re["url"] = %opResult.get
+
+  await ctx.send(re)
