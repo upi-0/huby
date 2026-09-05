@@ -1,5 +1,5 @@
 import unittest, strutils
-import db, models/all, service/file/main, service/implement, publickey
+import db, models/all, service/file/main, service/owner/main, service/implement, publickey
 
 suite "File Service Tests (DB Integration, Logic & Extreme Edge Cases)":
 
@@ -9,8 +9,6 @@ suite "File Service Tests (DB Integration, Logic & Extreme Edge Cases)":
 
   setup:
     testGarage = newGarage()
-    testGarage.storage_used = 0
-    testGarage.max_storage = 1048576 # 1 MB limit
     conn.insert(testGarage)
     testFileService = newFileService(testGarage, conn)
 
@@ -37,24 +35,15 @@ suite "File Service Tests (DB Integration, Logic & Extreme Edge Cases)":
     check sqliServiceVal.isNone
     check sqliServiceVal.status == 404
 
-  test "updateStorageUsed: increments, decrements, and respects max_storage limit":
-    # Increment storage by 100 KB
-    let updated1 = testFileService.updateStorageUsed(100, "+")
-    check updated1.isSome
-    check updated1.get == 100
+  test "checkStorageQuota: respects max_storage limit":
+    var own = (new Owner).setCreatedAt()
+    own.storage_used = 100
+    own.max_storage = 1000
+    check own.checkStorageQuota(500).isSome
+    check own.checkStorageQuota(500).get == true
 
-    # Increment storage by another 200 KB
-    let updated2 = testFileService.updateStorageUsed(200, "+")
-    check updated2.isSome
-    check updated2.get == 300
-
-    # Decrement storage by 50 KB
-    let updated3 = testFileService.updateStorageUsed(50, "-")
-    check updated3.isSome
-    check updated3.get == 250
-
-    # Extreme Case: Exceed max_storage limit (limit is 1048576)
-    let exceeded = testFileService.updateStorageUsed(2000000, "+")
+    # Exceed limit
+    let exceeded = own.checkStorageQuota(1000)
     check exceeded.isNone
     check exceeded.status == 403
     check exceeded.errorReason.contains("Limit Reached")

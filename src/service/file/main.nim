@@ -50,19 +50,8 @@ proc newFileService*(ownerId: int; grg: string) : Future[ServiceValue[FileServic
   
   some newFileService(gara.get, db)
 
-proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] =
-  >> impl.conn.updateStorageUsed(impl.garage.owner, length, operator)
-
-  let
-    query = GarageQuery()
-    garageId = impl.garage.id    
-    updateq = query.updateStorageUsed(garageId, length, operator)
-    cintamu = impl.conn.getRow(sql updateq)
-
-  if cintamu.isNone:
-    return result.none(500, "Menuju Tanpa Dapdap")
-
-  some cintamu.get[0].to(int)
+proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] {.deprecated: "2026-09-05".} =
+  impl.conn.updateStorageUsed(impl.garage.owner, length, operator)
 
 proc status*(impl: FileService; key: string) : ServiceValue[FileStatus] =
   var status = new FileStatus

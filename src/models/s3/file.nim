@@ -18,6 +18,7 @@ type
     isUploaded*: bool
     isDeleted*: bool
     persistAccess* = true
+    is_size_sync*: bool
     signature* {.unique.}: string
     ext*: string
     address*: string

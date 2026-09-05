@@ -38,7 +38,14 @@ proc owner*(namespace: string) : ServiceValue[Owner] =
   except Exception:
     return result.none(404, "Owner not found")
 
-proc updateStorageUsed*(conn: DbConn; own: Owner; length: int; operator = "+") : ServiceValue[int] =
+proc checkStorageQuota*(own: Owner; additionalSize: int64): ServiceValue[bool] =
+  if own.isNil:
+    return result.none(404, "Owner not found")
+  if own.max_storage > 0 and (own.storage_used + additionalSize) > own.max_storage:
+    return result.none(403, "Limit Reached")
+  some true
+
+proc updateStorageUsed*(conn: DbConn; own: Owner; length: int; operator = "+") : ServiceValue[int] {.deprecated: "2026-09-05".} =
   const query = """
     UPDATE s3.owner
     SET storage_used = GREATEST(storage_used $operator $length, 1)

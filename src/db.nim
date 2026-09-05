@@ -1,13 +1,17 @@
 import
+  std/os,
   models/all, norm/[model, pool],
   std/with,
-  asyncdispatch
+  asyncdispatch,
+  env
 
 import postgres; export postgres
 
 when defined(useLocalDb):
   putEnv("DB_HOST", "localhost:5432")
-  putEnv("DB_PASS", "password")
+  putEnv("DB_USER", getEnv("DB_USER", "postgres"))
+  putEnv("DB_PASS", getEnv("DB_PASS", "password"))
+  putEnv("DB_NAME", getEnv("DB_NAME", "postgres"))
 
 var
   connPool = newSeq[DbConn](0)
@@ -36,6 +40,9 @@ with(conn):
   createTables(newStorageRepo())
   createTables(emptyFile())
   createTables(WebhookDeliveries(garage: emptyGarage())) 
+  exec(sql"ALTER TABLE s3.owner ADD COLUMN IF NOT EXISTS last_update_storage_used BIGINT NOT NULL DEFAULT 0;")
+  exec(sql"ALTER TABLE s3.file ADD COLUMN IF NOT EXISTS is_size_sync BOOLEAN NOT NULL DEFAULT FALSE;")
+  exec(sql"ALTER TABLE s3.garage DROP COLUMN IF EXISTS storage_used;") 
 
 when defined(seedS3Credentials) or defined(seedAll):
   import crypto

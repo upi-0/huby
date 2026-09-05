@@ -4,6 +4,7 @@ import
 import
   ../implement, ../hf/[uploadHf, deleteHf, resolveHf, renameHf, utils],
   ../storage_repo/main,
+  ../owner/main,
   s3presign/main,
   env  
 
@@ -37,7 +38,7 @@ proc delete*(
   if result.isSome:
     file.isDeleted = true
     file.isUploaded = false
-    file.size = 0
+    file.is_size_sync = false
 
     conn.update(file)
     hook.notifyDeleted(impl.garage.name, key)
@@ -123,7 +124,6 @@ proc putFile*(
   uploaded = true;
   s3conf: var S3Config;
 ) : ServiceValue[string] =
-  echo impl.garage.name
   var
     file = newFile(impl.garage)
     address = record.address
@@ -139,14 +139,17 @@ proc putFile*(
 
     var prevSize = file.size
 
+    if fileSize > prevSize:
+      let quotaCheck = impl.garage.owner.checkStorageQuota(fileSize - prevSize)
+      if quotaCheck.isNone:
+        return result.none(quotaCheck.status, quotaCheck.errorReason)
+
     block:
       file.size = fileSize
       address = file.address
+      file.is_size_sync = false
 
-    >> impl.updateStorageUsed(prevSize, "-")
-    >> impl.updateStorageUsed(fileSize)
-
-    conn.update(file, ["size"])
+    conn.update(file, ["size", "is_size_sync"])
     s3conf = file.storage_repo.toS3Config()
 
     return address.some()
@@ -154,9 +157,14 @@ proc putFile*(
   elif exists and not replace:
     return result.none(409)  
 
+  let quotaCheck = impl.garage.owner.checkStorageQuota(fileSize)
+  if quotaCheck.isNone:
+    return result.none(quotaCheck.status, quotaCheck.errorReason)
+
   try:
     file.isUploaded = uploaded
     file.isDeleted = false
+    file.is_size_sync = false
     file.signature = record.signature
     file.size = fileSize
     file.key = key
@@ -164,8 +172,6 @@ proc putFile*(
     file.persistAccess = true
     file.address = record.address
     file.storage_repo = impl.conn.getIdleStorageRepo().get()
-
-    >> impl.updateStorageUsed(fileSize)
 
     s3conf = file.storage_repo.toS3Config()
     conn.insert file

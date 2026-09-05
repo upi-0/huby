@@ -120,6 +120,13 @@ proc handleDeleteObject*(
     return result.none(cfgRes.status, cfgRes.errorReason)
 
   discard await impl.delete(key)
+  file.isDeleted = true
+  file.isUploaded = false
+  file.is_size_sync = false
+  try:
+    impl.conn.update(file)
+  except DbError:
+    discard
 
   let targetUrl = cfgRes.get.s3conf.presignDelete(cfgRes.get.bucket, cfgRes.get.address)
   return implement.some(targetUrl)
@@ -201,6 +208,7 @@ proc handleCompleteMultipartUpload*(
     return result.none(cfgRes.status, cfgRes.errorReason)
 
   file.isUploaded = true
+  file.is_size_sync = false
   try:
     impl.conn.update(file)
   except DbError:
@@ -233,6 +241,7 @@ proc handleAbortMultipartUpload*(
 
   file.isDeleted = true
   file.isUploaded = false
+  file.is_size_sync = false
   try:
     impl.conn.update(file)
   except DbError:

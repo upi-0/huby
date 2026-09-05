@@ -54,8 +54,11 @@ proc update*[T: Model](dbConn: DbConn; obj: var T; updateFields: openArray[strin
 
   for i, col in obj.cols:
     if updateFields.contains(col):
-      if row[i].kind == dvkString:
+      case row[i].kind
+      of dvkString:
         phds.add "$# = '$#'" % [col, row[i].s]
+      of dvkBool:
+        phds.add "$# = $#" % [col, if row[i].b: "TRUE" else: "FALSE"]
       else:
         phds.add "$# = $#" % [col, $(row[i])]
     
