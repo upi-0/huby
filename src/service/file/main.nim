@@ -28,6 +28,12 @@ type
     isDeleted*: bool
     persistAccess*: bool
 
+  FileList* = ref object of RootObj
+    key: string
+    lastModified: string
+    etag: string
+    size: int64
+
   FileService* = ref object of RootObj
     garage*: Garage
     query: FileQuery
@@ -109,19 +115,3 @@ proc setPersistAccess*(impl: FileService; key: string; to: bool) : ServiceValue[
   impl.conn.update(file)
 
   some true
-
-export Garage
-
-when isMainModule:
-  var gar = newGarage()
-
-  block:
-    conn.createTables newFile gar
-
-  let fs = FileService(
-    garage: newGarage(),
-    query: FileQuery(),
-    conn: conn
-  )
-
-  echo fs.listFiles("linux:rijal").errorReason

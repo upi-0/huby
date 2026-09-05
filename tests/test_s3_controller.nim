@@ -121,6 +121,8 @@ suite "S3 Presign & Worker Proxy Method Handlers Tests":
         else: "DeleteObject"
       of "HEAD":
         "HeadObject"
+      of "OPTIONS":
+        "PreflightOptions"
       else:
         "Unsupported"
 
@@ -133,3 +135,5 @@ suite "S3 Presign & Worker Proxy Method Handlers Tests":
     check determineOperation("DELETE", %*{"uploadId": "123"}) == "AbortMultipartUpload"
     check determineOperation("DELETE", %*{}) == "DeleteObject"
     check determineOperation("HEAD", %*{}) == "HeadObject"
+    check determineOperation("OPTIONS", %*{}) == "PreflightOptions"
+
