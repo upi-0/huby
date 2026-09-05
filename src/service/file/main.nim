@@ -102,9 +102,9 @@ proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj
 
 proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue[bool] =
   try:
-    let safeKey = key.replace("'", "''")
-    impl.conn.select(file, impl.query.select % [safeKey, $impl.garage.id])
-    some(true)
+    file = emptyFile()
+    impl.conn.select(file, impl.query.select % [key, $impl.garage.id])
+    implement.some(true)
 
   except NotFoundError, DbError:
     return result.none(404, "File Not Found")  
