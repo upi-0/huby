@@ -177,19 +177,3 @@ proc putFile*(
 
 export
   loadRequestRecord  
-
-when isMainModule:
-  var
-    dl = emptyFile()
-
-  let
-    grg = Garage(id: 2)
-    impl = grg.newFileService(conn)
-    po = impl.select("linux:rijal", dl)
-
-  try:
-    echo po.get
-    echo dl.signature
-
-  except AssertionDefect:
-    echo po.errorReason

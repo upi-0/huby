@@ -14,10 +14,11 @@ import
   service/[types, implement],
   service/presigned/[utils, general, types]
 
+template closeDb =
+  impl.get.conn.stop()
+
 proc getFileStorageConfig*(impl: FileService, key: string, file: var FileModel): ServiceValue[tuple[s3conf: S3Config, bucket: string, address: string]] =
-  let sel = impl.select(key, file)
-  if sel.isNone:
-    return result.none(404, "File not found")
+  >> impl.select(key, file)
 
   if file.storage_repo.isNil:
     return result.none(500, "Storage repository is not assigned to file")
@@ -294,7 +295,7 @@ proc s3handler*(ctx: Context) {.async.} =
       "contentLength": ctx.getQueryParams("contentLength"),
       "method": ctx.getQueryParams("method")
     }
-    echo "QUERY_PARAMS: " & $payload
+    # echo "QUERY_PARAMS: " & $payload
 
   except Exception:
     await ctx.send(%*{"error": getCurrentExceptionMsg()}, Http400)
@@ -318,9 +319,10 @@ proc s3handler*(ctx: Context) {.async.} =
     owner = path[1]
     bucket = path[2]
     id = owner.ownerId()
-    impl = newFileService(id.get, bucket)
+    impl = await newFileService(id.get, bucket)
 
-  discard owner
+  defer:
+    closeDb()
 
   if impl.isNone:
     await ctx.send(%*{"error": "Bucket/Garage not found"}, Http404)

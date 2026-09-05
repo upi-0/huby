@@ -1,20 +1,41 @@
 import
-  models/all, norm/model,
-  env
+  models/all, norm/[model, pool],
+  std/with,
+  asyncdispatch
 
 import postgres; export postgres
 
-let
-  host = getEnv("DB_HOST")
-  user = getEnv("DB_USER")
-  pass = getEnv("DB_PASS")
-  name = when defined(useTest): "jokodb_test" else: getEnv("DB_NAME")
-  conn = open(host, user, pass, name)
+when defined(useLocalDb):
+  putEnv("DB_HOST", "localhost:5432")
+  putEnv("DB_PASS", "password")
 
-block:
-  conn.createTables(newStorageRepo())
-  conn.createTables(emptyFile())
-  conn.createTables(WebhookDeliveries(garage: emptyGarage()))
+var
+  connPool = newSeq[DbConn](0)
+  connPoolAddr = connPool.addr
+  conn* {.deprecated.} = getDb()
+
+proc createDb* = 
+  for _ in 1 .. 5:
+    connPoolAddr[].add getDb()
+
+proc tryPopDb*: Future[DbConn] {.gcsafe, async.} =
+  try:
+    result = connPoolAddr[].pop()
+
+  except IndexDefect:
+    await sleepAsync(100)
+    result = await tryPopDb()
+
+proc stop*(db: var DbConn) {.gcsafe.} =
+  connPoolAddr[].add db
+  db.reset()
+
+createDb()   
+
+with(conn):
+  createTables(newStorageRepo())
+  createTables(emptyFile())
+  createTables(WebhookDeliveries(garage: emptyGarage())) 
 
 when defined(seedS3Credentials) or defined(seedAll):
   import crypto
@@ -60,4 +81,5 @@ when defined(seedGarage) or defined(seedAll):
   conn.insert garage
 
 export
-  model, conn
+  model, conn, pool
+

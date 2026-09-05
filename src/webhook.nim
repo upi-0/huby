@@ -38,13 +38,17 @@ proc createWebhookConnection*(garageKey, origin, endpoint: string; garageId: int
 
 proc sendPayload(conn: WebhookConnection; payload: WebhookPayload) : Future[Option[AsyncResponse]] {.async.} =
   let
-    client: AsyncHttpClient = hc[].client
+    http: HttpConnection = inheritHttpConnection()
+    client = http.client
     body = $(%*payload)
     headers = newHttpHeaders {
       "content-type": "application/json",
       "x-huby-creator" : "github.com/upi-0",
       "x-huby-signature-256" : "sha256=" & hmac_sha256(conn.garageKey, body).toHex()
     }
+
+  defer:
+    http.stop()
 
   var
     response: AsyncResponse

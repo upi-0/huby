@@ -15,7 +15,7 @@ proc resolve*(ctx: Context) {.async.} =
   ctx.json()
 
   var
-    (impl, meta, _) = ctx.retrieve("resolve")
+    (impl, meta, _) = await ctx.retrieve("resolve")
     file = newFile impl.get.garage
     
   || impl.get.select(meta.key, file)
@@ -31,7 +31,7 @@ proc checkStatus*(ctx: Context) {.async.} =
     ctx.json()
 
   let
-    (impl, meta, _) = ctx.retrieve("check-status")
+    (impl, meta, _) = await ctx.retrieve("check-status")
 
   ctx.send impl.get.status(meta.key)    
 
@@ -52,7 +52,7 @@ proc uppyEndpoint*(ctx: Context) {.async.} =
     return ctx.send("", Http204)
 
   let
-    (impl, meta, _) = ctx.retrieve("uppy")
+    (impl, meta, _) = await ctx.retrieve("uppy")
     s3conf = r2GenerateConf()
     hash = ctx.getQueryParams("hash")
     key = ["temp", impl.get.garage.name, hash, meta.key].join("/")

@@ -36,12 +36,13 @@ proc completeMigrate*(returning: JsonNode) : Future[int] {.async.} =
     key = returning["key"].str
     garage = returning["garage"].str
     uploadId = returning["uploadId"].str
-    impl = newFileService(1, garage)
+    impl = await newFileService(1, garage)
 
   >> impl.get.select(key, file)
 
   let
-    httpClient = hc[].client
+    http = inheritHttpConnection()
+    httpClient = http.client
     meta = file.storage_repo.getRepoAddress.split("/")
     s3Client = s3GenerateConf(meta[0])
     mpClient = MultipartClient(
@@ -49,6 +50,9 @@ proc completeMigrate*(returning: JsonNode) : Future[int] {.async.} =
       bucket: meta[1],
       key: address
     )
+
+  defer:
+    http.stop()  
 
   block generatePayload:
     let listParts = await mpClient.listParts(uploadId)
@@ -121,23 +125,3 @@ proc requestMigrate*(impl: FileService, key: string, data: MigrateData) : Future
     )  
 
   response.status[0 .. 2].parseInt.some()    
-
-when isMainModule:
-  let
-    impl = newFileService("rijal")
-    data = (
-      key: "migrate:linux:dapdap:7",
-      filename: "dapdap.pptx",
-      contentLength: 17954272.int64) 
-
-  try:
-    let resp = waitFor impl.get.requestMigrate("Tactical_Career_Blueprint.pptx", data)
-    echo resp.get
-
-  except ServiceValueException:
-    let error = ServiceValueException(getCurrentException())
-    echo error.status   
-    echo error.errorReason
-
-  except:
-    echo getCurrentExceptionMsg()

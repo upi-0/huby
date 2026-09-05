@@ -2,7 +2,8 @@ import
   query,
   ../garage/[main, query],
   ../implement,
-  ../owner/main
+  ../owner/main,
+  asyncdispatch
 
 from options import isNone, get
 
@@ -39,13 +40,15 @@ proc newFileService*(garage: Garage; conn: DbConn) : FileService =
     query: FileQuery()
   )    
 
-proc newFileService*(ownerId: int; grg: string) : ServiceValue[FileService] =
-  let gara = ownerId.getGarageByField("name", grg)
+proc newFileService*(ownerId: int; grg: string) : Future[ServiceValue[FileService]] {.gcsafe, async.} =
+  let
+    gara = ownerId.getGarageByField("name", grg)
+    db = await tryPopDb()
   
   if gara.isNone:
     return result.none gara
-
-  some newFileService(gara.get, conn)  
+  
+  some newFileService(gara.get, db)
 
 proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] =
   >> impl.conn.updateStorageUsed(impl.garage.owner, length, operator)
@@ -107,7 +110,7 @@ proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue
     implement.some(true)
 
   except NotFoundError, DbError:
-    return result.none(404, "File Not Found")  
+    return result.none(404, getCurrentExceptionMsg())  
 
 proc setPersistAccess*(impl: FileService; key: string; to: bool) : ServiceValue[bool] =
   var file = emptyFile()

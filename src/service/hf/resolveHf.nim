@@ -34,8 +34,12 @@ proc resolve*(file: fm.File; download = false) : ServiceValue[HuggingfaceUrl] =
 proc redirectUrl*(resolved: HuggingfaceUrl) : Future[ServiceValue[string]] {.async.} =
   try:
     let
-      resp = await hc.request(resolved.httpUrl)
+      http = inheritHttpConnection()
+      resp = await http.client.request(resolved.httpUrl)
       url = resp.headers.table["location"][0]
+
+    defer:
+      http.stop()
 
     some(url)
 

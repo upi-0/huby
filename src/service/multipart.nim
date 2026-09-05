@@ -25,7 +25,11 @@ proc createUrl*(client: MultipartClient) : string =
 proc create*(client: MultipartClient): Future[ServiceValue[MultipartUploadData]] {.async.} =
   let
     url = client.createUrl()
-    resp = await hc[].client.request(url, httpMethod=HttpPost)
+    http = inheritHttpConnection()
+    resp = await http.client.request(url, httpMethod=HttpPost)
+
+  defer:
+    http.stop()
 
   var
     body: string
@@ -53,7 +57,11 @@ proc listPartsUrl*(client: MultipartClient, uploadId: string) : string =
 proc listParts*(client: MultipartClient, uploadId: string) : Future[ServiceValue[MultipartListParts]] {.async.} = 
   let
     url = client.listPartsUrl(uploadId)
-    resp = await hc[].client.request(url)
+    http = inheritHttpConnection()
+    resp = await http.client.request(url)
+
+  defer:
+    http.stop()
 
   if not resp.code.is2xx:
     return result.none(403, "HF: " & await resp.body())

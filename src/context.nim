@@ -115,13 +115,13 @@ proc getMeta*(ctx: Context; privateKey, action: string): MetaObj =
     action
   ).get()
 
-proc retrieve*(ctx: Context; actionName: string, json = false) : tuple[
+proc retrieve*(ctx: Context; actionName: string, json = false) : Future[tuple[
   impl: ServiceValue[FileService],
   meta: MetaObj,
   hook: ServiceValue[WebhookConnection]
-] =
+]] {.async.} =
   block:
-    result.impl = newFileService(1, ctx.getPathParams("garage_name"))
+    result.impl = await newFileService(1, ctx.getPathParams("garage_name"))
     result.meta = block:
       if not json: ctx.getMeta(result.impl.get.garage.owner.secret_access_key, actionName)
       else: resolveJWT(ctx.getPathParams("jwt_val"), result.impl.get.garage.owner.secret_access_key).get()
