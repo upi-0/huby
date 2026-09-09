@@ -1,8 +1,8 @@
 import s3/[file, garage, owner]
 export file, garage, owner
 
-import webhook/deliveries
-export deliveries
+import webhook/[deliveries, endpoints]
+export deliveries, endpoints
 
 import storage/repo
 export repo
