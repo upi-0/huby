@@ -134,6 +134,17 @@ proc s3handler*(ctx: Context) {.async.} =
     let
       corsRes = impl.get.handleOptions(origin, requestMethod, requestHeaders)
       match = corsRes.get
+      returning = %*{
+        "config": {
+          "self_response": false,
+          "secret_access_key": %impl.get.garage.owner.secret_access_key,
+          "headers": {}
+        },
+        "url": {
+          "download": "",
+          "real": ""
+        }
+      }
     
     ctx.response.headers["access-control-allow-origin"] = @[match.allowOrigin]
     ctx.response.headers["access-control-allow-methods"] = @[match.allowMethods.join(", ")]

@@ -43,7 +43,7 @@ proc handlePutObject*(
     contentLength = contentLength,
     record = record,
     replace = true,
-    uploaded = true,
+    uploaded = false,
     s3conf = s3conf
   )
   if addrRes.isNone:

@@ -118,11 +118,11 @@ when defined(seedOwner) or defined(seedAll):
   var owner = (new Owner).setCreatedAt()
 
   block:
-    owner.namespace = "penus"
-    owner.access_key = "kadapdap21"
-    owner.secret_access_key = "laterus"
+    owner.namespace = "bengkel-sepeda-dv8d"
+    owner.access_key = "devtrine-private"
+    owner.secret_access_key = "heni_sunarso_kadapi_masnur_ari"
     owner.storage_used = 0
-    owner.max_storage = 30 * 1024 * 1024
+    owner.max_storage = 30 * 1024 * 1024 * 1024
 
   conn.insert owner
 

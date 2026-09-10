@@ -23,7 +23,8 @@ type
     ext*: string
     address*: string
     storage_repo*: StorageRepo
-    version*: int
+    version* {.deprecated.}: int
+    etag*: string
 
   FileModel* = File    
 
