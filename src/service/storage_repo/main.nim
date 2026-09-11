@@ -40,6 +40,8 @@ proc getUploadToken*(storageRepo: StorageRepo) : string =
 
 proc toS3Config*(storageRepo: StorageRepo) : S3Config =
   let c = loadEncrypterAES256("DB_REPO_SECRET")
+  echo "DAPDAP: " & c.decrypt(storageRepo.namespace)
+  echo "ASDP: " & storageRepo.namespace
 
   S3Config(
     accessKeyId: c.decrypt(storageRepo.access_key),

@@ -1,6 +1,7 @@
 import
   prologue, context,
-  db, models/all
+  db, models/all,
+  asyncdispatch
 
 import json
 
@@ -17,9 +18,11 @@ proc acceptHead*(ctx: Context) {.async.} =
   ##    key: string
   ##    content_type: string // as ext
   ## }
-  
+
+  echo "DAPDAP"
+
   let
-    body = parseJson ctx.response.body
+    body = parseJson ctx.request.body
     owner = ctx.getPathParams("owner").ownerId()
     garag = ctx.getPathParams("garage")
     impl = await newFileService(owner.get, garag)
@@ -40,4 +43,4 @@ proc acceptHead*(ctx: Context) {.async.} =
     except Exception:
       return ctx.send("Error", Http500)
 
-  return await ctx.send("Success", Http200)
+  await ctx.send("Success", Http200)

@@ -34,9 +34,6 @@ proc handleGetObject*(
   var file = emptyFile()
 
   >> impl.select(key, file)
-  
-  if not file.isUploaded:
-    return result.none(404)
 
   let targetUrl = file.resolve.get.httpUrl
   implement.some(targetUrl)
