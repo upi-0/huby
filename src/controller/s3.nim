@@ -1,6 +1,6 @@
 import
   prologue, context, json,
-  strutils, asyncdispatch
+  strutils, asyncdispatch, times
 
 import
   models/all, db
@@ -73,7 +73,6 @@ proc s3handler*(ctx: Context) {.async.} =
     owner = path[1]
     bucket = path[2]
     id = owner.ownerId()
-    re = newJObject()
     impl = await newFileService(id.get, bucket)
 
   defer:
@@ -111,6 +110,7 @@ proc s3handler*(ctx: Context) {.async.} =
         url.split("/")[^1].split("?")[0]
 
     response = %*{
+      "timestamp": getTime().toUnix(),
       "config": {
         "self_response": false,
         "secret_access_key": %impl.get.garage.owner.secret_access_key,
@@ -166,21 +166,21 @@ proc s3handler*(ctx: Context) {.async.} =
     response["status"] = %204
     response["config"]["headers"] = match.toHeadersJson()
 
-    return ctx.send(re)
+    return ctx.send(response)
 
   of "POST":
     if hasUploads:
       opResult = impl.get.handleCreateMultipartUpload(url, key, contentLength)
 
       block:
-        response["url"]["real"] = %opResult
+        response["url"]["real"] = %opResult.get
         response["returning"]["action"] = %"CreateMultipartUpload"
 
     elif uploadId.len > 0:
       opResult = await impl.get.handleCompleteMultipartUpload(url, key, uploadId)
 
       block:
-        response["url"]["real"] = %opResult
+        response["url"]["real"] = %opResult.get
         response["url"]["download"] = %impl.get.handleGetObject(url, key).get
         response["returning"]["action"] = %"CompleteMultipartUpload"
 
