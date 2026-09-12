@@ -2,7 +2,7 @@ import
   main, asyncdispatch, strutils, webhook
 
 import
-  ../implement, ../hf/[uploadHf, deleteHf, resolveHf, renameHf, utils],
+  ../implement, ../hf/[uploadHf, deleteHf, resolveHf],
   ../storage_repo/main,
   ../owner/main,
   s3presign/main,
@@ -40,48 +40,8 @@ proc delete*(
     file.isUploaded = false
     file.is_size_sync = false
 
-    conn.update(file)
+    impl.conn.update(file)
     hook.notifyDeleted(impl.garage.name, key)
-
-proc rename*(
-  impl: FileService;
-  key: string;
-  targetName: string;
-  hook: ServiceValue[WebhookConnection] = none(WebhookConnection, 0)
-) : Future[ServiceValue[bool]] {.async.} =
-  var file = newFile impl.garage
-  
-  >> impl.select(key, file)
-
-  block:
-    let
-      prevName = file.address.getFileName()
-      renameProcess = renameFile(file.address, targetName, file.storage_repo.getUploadToken(), file.storage_repo.getRepoAddress())
-    
-    renameProcess.addCallback(
-      proc(fb: Future[ServiceValue[string]]) =
-        let fbb = fb.read
-        if fb.read.isSome:
-          file.address = fbb.get
-          conn.update file  
-
-          hook.sendHook("file.renamed", %*{
-            "garage": impl.garage.name,
-            "key": key,
-            "success": true,
-            "new_name": targetName,
-            "prev_name": prevName
-          })
-
-        else:
-          hook.sendHook("file.renamed", %*{
-            "garage": impl.garage.name,
-            "key": key,
-            "success": false
-          })
-    )
-
-  result = some(true, 202)
 
 proc resolveRedirectFile*(impl: FileService; key: string; download = false) : Future[ServiceValue[string]] {.async.} =
   if key == "":
@@ -148,8 +108,9 @@ proc putFile*(
       file.size = fileSize
       address = file.address
       file.is_size_sync = false
+      file.isUploaded = false
 
-    conn.update(file, ["size", "is_size_sync"])
+    impl.conn.update(file, ["size", "is_size_sync", "isuploaded"])
     s3conf = file.storage_repo.toS3Config()
 
     return address.some()
@@ -174,7 +135,7 @@ proc putFile*(
     file.storage_repo = impl.conn.getIdleStorageRepo().get()
 
     s3conf = file.storage_repo.toS3Config()
-    conn.insert file
+    impl.conn.insert file
 
   except DbError, NotFoundError:
     return result.none(500, "DAPDAP:" & getCurrentExceptionMsg())

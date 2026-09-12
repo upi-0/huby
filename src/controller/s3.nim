@@ -1,6 +1,6 @@
 import
   prologue, context, json,
-  strutils, asyncdispatch
+  strutils, asyncdispatch, times
 
 import
   models/all, db
@@ -73,7 +73,6 @@ proc s3handler*(ctx: Context) {.async.} =
     owner = path[1]
     bucket = path[2]
     id = owner.ownerId()
-    re = newJObject()
     impl = await newFileService(id.get, bucket)
 
   defer:
@@ -103,11 +102,31 @@ proc s3handler*(ctx: Context) {.async.} =
         except Exception: 0
     else: 0
 
-  let key = block:
-    if path.len > 3:
-      path[3 .. ^1].join("/")
-    else:
-      url.split("/")[^1].split("?")[0]
+  let
+    key = block:
+      if path.len > 3:
+        path[3 .. ^1].join("/")
+      else:
+        url.split("/")[^1].split("?")[0]
+
+    response = %*{
+      "timestamp": getTime().toUnix(),
+      "config": {
+        "self_response": false,
+        "secret_access_key": %impl.get.garage.owner.secret_access_key,
+        "headers": {},
+        "key": key
+      },
+      "returning": {
+        "action": "",
+        "bucket": bucket,
+        "owner_namespace": owner
+      },
+      "url": {
+        "download": "",
+        "real": ""
+      }
+    }      
 
   var opResult: ServiceValue[string]
 
@@ -144,16 +163,27 @@ proc s3handler*(ctx: Context) {.async.} =
     if match.maxAgeSeconds > 0:
       ctx.response.headers["access-control-max-age"] = @[$match.maxAgeSeconds]
 
-    re["status"] = %204
-    re["headers"] = match.toHeadersJson()
+    response["status"] = %204
+    response["config"]["headers"] = match.toHeadersJson()
 
-    return ctx.send(re)
+    return ctx.send(response)
 
   of "POST":
     if hasUploads:
       opResult = impl.get.handleCreateMultipartUpload(url, key, contentLength)
+
+      block:
+        response["url"]["real"] = %opResult.get
+        response["returning"]["action"] = %"CreateMultipartUpload"
+
     elif uploadId.len > 0:
       opResult = await impl.get.handleCompleteMultipartUpload(url, key, uploadId)
+
+      block:
+        response["url"]["real"] = %opResult.get
+        response["url"]["download"] = %impl.get.handleGetObject(url, key).get
+        response["returning"]["action"] = %"CompleteMultipartUpload"
+
     else:
       await ctx.send(%*{"error": "POST request must specify 'uploads' or 'uploadId'"}, Http400)
       return
@@ -167,24 +197,56 @@ proc s3handler*(ctx: Context) {.async.} =
         await ctx.send(%*{"error": "Invalid partNumber format"}, Http400)
         return
       opResult = impl.get.handlePutPart(url, key, uploadId, partNumber, contentLength)
+
+      block:
+        response["url"]["real"] = %opResult.get
+        response["returning"]["action"] = %"PutPart"
+
     else:
       opResult = impl.get.handlePutObject(url, key, contentLength)
+
+      block:
+        response["url"]["download"] = %(impl.get.handleGetObject(url, key).get)
+        response["url"]["real"] = %opResult.get
+        response["returning"]["action"] = %"PutObject"
 
   of "GET":
     if uploadId.len > 0:
       opResult = impl.get.handleListParts(url, key, uploadId)
+
+      block:
+        response["url"]["real"] = %opResult.get
+        response["returning"]["action"] = %"ListParts"
+
     else:
       opResult = impl.get.handleGetObject(url, key)
-    re["cached_secret_access_key"] = %impl.get.garage.owner.secret_access_key
+
+      block:
+        response["url"]["real"] = %opResult.get
+        response["returning"]["action"] = %"GetObject"
+        response["config"]["cached_secret_access_key"] = %impl.get.garage.owner.secret_access_key
 
   of "DELETE":
     if uploadId.len > 0:
       opResult = impl.get.handleAbortMultipartUpload(url, key, uploadId)
+
+      block:
+        response["url"]["real"] = %opResult.get
+        response["returning"]["action"] = %"AbortMultipartUpload"
+        
     else:
       opResult = await impl.get.handleDeleteObject(url, key)
 
+      block:
+        response["url"]["real"] = %opResult.get
+        response["returning"]["action"] = %"DeleteObject"
+
   of "HEAD":
     opResult = impl.get.handleHeadObject(url, key)
+
+    block:
+      response["url"]["real"] = %opResult.get
+      response["returning"]["action"] = %"HeadObject"
 
   else:
     await ctx.send(%*{"error": "Unsupported HTTP method: " & reqMethod}, Http405)
@@ -194,6 +256,6 @@ proc s3handler*(ctx: Context) {.async.} =
     await ctx.send(%*{"error": opResult.errorReason}, HttpCode(opResult.status))
     return
 
-  re["url"] = %opResult.get
-
-  await ctx.send(re)
+  block:
+    echo response
+    await ctx.send(response)

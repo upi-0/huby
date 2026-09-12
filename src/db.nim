@@ -1,13 +1,12 @@
 import
-  std/os,
   models/all, norm/[model, pool],
   std/with,
-  asyncdispatch,
-  env
+  asyncdispatch
 
 import postgres; export postgres
 
 when defined(useLocalDb):
+  import env
   putEnv("DB_HOST", "localhost:5432")
   putEnv("DB_USER", getEnv("DB_USER", "postgres"))
   putEnv("DB_PASS", getEnv("DB_PASS", "password"))
@@ -39,10 +38,63 @@ createDb()
 with(conn):
   createTables(newStorageRepo())
   createTables(emptyFile())
-  createTables(WebhookDeliveries(garage: emptyGarage())) 
+  createTables(newWebhookEndpoints())
+  createTables(newWebhookDelivery()) 
   exec(sql"ALTER TABLE s3.owner ADD COLUMN IF NOT EXISTS last_update_storage_used BIGINT NOT NULL DEFAULT 0;")
   exec(sql"ALTER TABLE s3.file ADD COLUMN IF NOT EXISTS is_size_sync BOOLEAN NOT NULL DEFAULT FALSE;")
   exec(sql"ALTER TABLE s3.garage DROP COLUMN IF EXISTS storage_used;") 
+  exec(sql"ALTER TABLE webhook.deliveries DROP COLUMN IF EXISTS garage;")
+  exec(sql"ALTER TABLE webhook.deliveries DROP COLUMN IF EXISTS origin;")
+  exec(sql"ALTER TABLE webhook.deliveries DROP COLUMN IF EXISTS trigger_ip;")
+
+# Higher Level Query Generator
+import strutils
+import sequtils, sugar
+import times
+
+const sp = "  "  
+
+proc flat*(s: string): string =
+  s.replace("\n", " ").replace("  ", "")
+
+proc query*(statements: varargs[string]): string =
+  result = statements.join("\n") & ";"
+  let
+    dap = now()
+    waktu = "[$#:$#] " % [$dap.hour, $dap.minute]
+
+  echo waktu & result.flat
+
+proc select*(statements: varargs[string]): string =
+  result = "SELECT\n"
+  result &= statements.map((st) => sp & st).join(",\n")
+
+proc frm*(statements: varargs[string]): string =
+  result = "FROM\n"
+  result &= sp & statements.join(" ")
+
+proc where*(statemetns: varargs[seq[string]]) : string =
+  result = "WHERE\n"
+
+  proc dapdap(s: seq[string]): string =
+    var dap: seq[string]
+
+    if s.len == 2:
+      dap = @[s[0], "=", s[1]]
+    elif s.len == 3:
+      dap = @[s[0], s[1], s[2]]    
+
+    dap.join(" ")    
+
+  result &= statemetns.map(
+    (e) => sp & e.dapdap
+  ).join(" AND\n")
+
+proc join*(strategy: string; statements: varargs[string]): string =
+  result = [strategy, "JOIN"].join(" ") & '\n'
+  result &= sp & statements.join(" ON ")
+
+proc q*(s: string): string = "'" & s & "'"
 
 when defined(seedS3Credentials) or defined(seedAll):
   import crypto
@@ -66,11 +118,11 @@ when defined(seedOwner) or defined(seedAll):
   var owner = (new Owner).setCreatedAt()
 
   block:
-    owner.namespace = "penus"
-    owner.access_key = "kadapdap21"
-    owner.secret_access_key = "laterus"
+    owner.namespace = "bengkel-sepeda-dv8d"
+    owner.access_key = "devtrine-private"
+    owner.secret_access_key = "heni_sunarso_kadapi_masnur_ari"
     owner.storage_used = 0
-    owner.max_storage = 30 * 1024 * 1024
+    owner.max_storage = 30 * 1024 * 1024 * 1024
 
   conn.insert owner
 

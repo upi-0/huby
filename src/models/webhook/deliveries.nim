@@ -1,32 +1,31 @@
 import
   ../base,
-  ../s3/garage
+  ../s3/garage,
+  endpoints
 
 type
   WebhookDeliveries* {.
     tableName: "deliveries",
     schemaName: "webhook"
-  .} = ref object of Model
-    garage*: Garage
+  .} = ref object of BaseModel
+    endpoint*: WebhookEndpoints
     event*: string
-    origin*: string
-    endpoint*: string
     status_code*: string
-    trigger_ip*: string
-    date*: DateTime
+    payload*: string
     delivered*: bool
+    redeliver*: bool
 
 proc newWebhookDelivery*(
   garage: Garage;
   event, origin, endpoint: string;
   trigger_ip = ""
-) : WebhookDeliveries =
+) : WebhookDeliveries {.deprecated.} =
   WebhookDeliveries(
-    garage: garage,
     event: event,
-    origin: origin,
-    endpoint: endpoint,
-    trigger_ip: trigger_ip,
-    date: now(),
+    endpoint: new WebhookEndpoints,
     delivered: false
   )
+
+proc newWebhookDelivery*: WebhookDeliveries =
+  result = WebhookDeliveries(endpoint: newWebhookEndpoints())
+  result = result.setCreatedAt()

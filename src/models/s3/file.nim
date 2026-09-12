@@ -17,13 +17,14 @@ type
     size*: int64
     isUploaded*: bool
     isDeleted*: bool
-    persistAccess* = true
+    persistAccess* {.deprecated.} = true
     is_size_sync*: bool
     signature* {.unique.}: string
     ext*: string
     address*: string
     storage_repo*: StorageRepo
-    version*: int
+    version* {.deprecated.}: int
+    etag*: string
 
   FileModel* = File    
 

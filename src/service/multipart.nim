@@ -1,3 +1,5 @@
+{.deprecated.}
+
 import
   asyncdispatch,
   xmltree, xmlparser,

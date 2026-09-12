@@ -1,5 +1,10 @@
 import ../base
 
+type
+  PayloadXml = ref object
+    etag, key: string
+    size, id: int64
+
 proc handleListParts*(
     impl: FileService,
     url: string,
@@ -29,9 +34,32 @@ proc handleGetObject*(
   var file = emptyFile()
 
   >> impl.select(key, file)
-  
-  if not file.isUploaded:
-    return result.none(404)
 
   let targetUrl = file.resolve.get.httpUrl
   implement.some(targetUrl)
+
+proc handleListObjectsV2Xml*(
+  impl: FileService;
+  key: string
+) : ServiceValue[string] =
+  var dap = @[new PayloadXml]
+  let query = query(
+    select(
+      "f.version::text AS etag",
+      "f.key", "f.size", "f.id"),
+    frm("s3.file", "f"),
+    where(
+      @["f.garage", $impl.garage.id],
+      @["f.isdeleted", $false],
+      @["f.key", "LIKE", q(key & "%")]))
+
+  try:
+    impl.conn.rawSelect(query, dap)
+
+  except DbError:
+    return result.none(404)  
+
+  for da in dap:
+    echo da.key
+    echo da.size
+    echo da.id
