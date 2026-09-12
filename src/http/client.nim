@@ -49,8 +49,4 @@ proc request*(conn: ptr HttpConnection; url: string; headers: HttpHeaders = nil)
     conn[].reNewClient()
     result = await sendRequest()
 
-let
-  conn {.deprecated.} = newHttpConnection()
-  hc* {.deprecated.} = addr conn
-
 createHttpConnectionPool(10)
