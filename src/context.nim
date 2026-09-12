@@ -31,6 +31,8 @@ proc send*[T: string | JsonNode](ctx: Context; body: T, code = Http200) {.async.
     typeContent = ctx.response.headers.getTables()["content-type"][0]
     success = code.is2xx
 
+  echo typeContent  
+
   if typeContent == "application/json":
     let illall = %*{
       "success": success,

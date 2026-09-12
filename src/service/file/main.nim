@@ -100,12 +100,16 @@ proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj
 
 proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue[bool] =
   try:
+    echo "SELECT"
     file = emptyFile()
     impl.conn.select(file, impl.query.select % [key, $impl.garage.id])
     implement.some(true)
 
   except NotFoundError, DbError:
     return result.none(404, getCurrentExceptionMsg())  
+
+  except IndexDefect:
+    return result.none(500, "Unknown Error.")
 
 proc setPersistAccess*(impl: FileService; key: string; to: bool) : ServiceValue[bool] =
   var file = emptyFile()

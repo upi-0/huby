@@ -75,6 +75,11 @@ proc s3handler*(ctx: Context) {.async.} =
     id = owner.ownerId()
     impl = await newFileService(id.get, bucket)
 
+  block:
+    echo "INFO: "
+    echo bucket
+    echo owner  
+
   defer:
     closeDb()
 
@@ -129,6 +134,7 @@ proc s3handler*(ctx: Context) {.async.} =
     }      
 
   var opResult: ServiceValue[string]
+  echo "KEY GATHERED: " & key
 
   case reqMethod
   of "OPTIONS":
