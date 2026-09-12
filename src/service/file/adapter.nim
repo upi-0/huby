@@ -148,8 +148,9 @@ proc putFile*(
       file.size = fileSize
       address = file.address
       file.is_size_sync = false
+      file.isUploaded = false
 
-    conn.update(file, ["size", "is_size_sync"])
+    impl.conn.update(file, ["size", "is_size_sync", "isuploaded"])
     s3conf = file.storage_repo.toS3Config()
 
     return address.some()
@@ -174,7 +175,7 @@ proc putFile*(
     file.storage_repo = impl.conn.getIdleStorageRepo().get()
 
     s3conf = file.storage_repo.toS3Config()
-    conn.insert file
+    impl.conn.insert file
 
   except DbError, NotFoundError:
     return result.none(500, "DAPDAP:" & getCurrentExceptionMsg())
