@@ -1,14 +1,17 @@
 import
   prologue, context,
   db, models/all,
-  asyncdispatch
+  asyncdispatch,
+  http/client, httpclient,
+  tables
 
 import json
 
 import
   service/implement,
   service/file/main,
-  service/owner/main
+  service/owner/main,
+  service/s3/base
 
 proc acceptHead*(ctx: Context) {.async.} =
   ## Payload:
@@ -17,9 +20,8 @@ proc acceptHead*(ctx: Context) {.async.} =
   ##    etag: string
   ##    key: string
   ##    content_type: string // as ext
+  ##    action: string
   ## }
-
-  echo "DAPDAP"
 
   let
     body = parseJson ctx.request.body
@@ -27,20 +29,34 @@ proc acceptHead*(ctx: Context) {.async.} =
     garag = ctx.getPathParams("garage")
     impl = await newFileService(owner.get, garag)
 
-  block:
-    var file: FileModel
-    >> impl.get.select(body["key"].str, file)
+  var
+    file: FileModel
+  
+  let
+    http = inheritHttpConnection()
+    (hfs3, bucket, address) = get impl.get.getFileStorageConfig(body["key"].str, file)
 
-    try:
-      file.createdAt = getTime().toUnix()
-      file.size = body["size"].num
-      file.ext = body["content_type"].str
-      file.etag = body["etag"].str
-      file.isUploaded = true
+  defer:
+    http.stop()    
+    
+  try:
+    let resp: AsyncResponse = await http.client.request(
+      hfs3.presignHead(bucket, address),
+      httpMethod=HttpHead)
+
+    if resp.code.is2xx:
+      let data = resp.headers.table
+
+      block:
+        file.createdAt = getTime().toUnix()
+        file.size = data["content-length"][0].parseInt()
+        file.etag = data["etag"][0]
+        file.ext = data["content-type"][0]
+        file.isUploaded = true
 
       impl.get.conn.update(file)
 
-    except Exception:
-      return ctx.send("Error", Http500)
+  except:
+    await ctx.send("Error", Http500)
 
   await ctx.send("Success", Http200)
