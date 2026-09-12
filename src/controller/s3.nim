@@ -12,9 +12,6 @@ import
   service/presigned/[utils, general, types],
   service/cfcors
 
-template closeDb =
-  impl.get.conn.stop()
-
 proc s3handler*(ctx: Context) {.async.} =
   ## Worker Proxy S3 Bridge Handler
   ##
@@ -81,7 +78,7 @@ proc s3handler*(ctx: Context) {.async.} =
     echo owner  
 
   defer:
-    closeDb()
+    impl.get.conn.stop()
 
   if impl.isNone:
     await ctx.send(%*{"error": "Bucket/Garage not found"}, Http404)

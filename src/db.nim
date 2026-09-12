@@ -32,6 +32,7 @@ proc tryPopDb*: Future[DbConn] {.gcsafe, async.} =
 proc stop*(db: var DbConn) {.gcsafe.} =
   connPoolAddr[].add db
   db.reset()
+  echo "Current Connection: " & $(connPoolAddr[].len)
 
 createDb()   
 
