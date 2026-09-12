@@ -56,14 +56,14 @@ proc r2GenerateConf*() : S3Config =
     multipartChunkSize: 4'i64 * 1024 * 1024 * 1024
   )
 
-proc clientGenerateConf*(endpoint, accessKey, privateKey: string) : S3Config =
+proc clientGenerateConf*(endpoint, accessKey, privateKey: string; expiry = 3600) : S3Config =
   S3Config(
     accessKeyId: accessKey,
     secretAccessKey: privateKey,
     region: "sunarso-1",
     forcePathStyle: true,
     endpoint: endpoint,
-    expiresSeconds: 3600,
+    expiresSeconds: expiry,
     multipartThreshold: 95'i64 * 1024 * 1024,
     multipartChunkSize: 95'i64 * 1024 * 1024    
   )
