@@ -11,18 +11,24 @@ import
 import
   s3presign/main,  
   models/s3/file,
-  webhook
+  webhook,
+  db
 
 proc resolve*(ctx: Context) {.async.} =
   ctx.json()
 
-  var
+  let
     (impl, meta, _) = await ctx.retrieve("resolve")
+  
+  defer:
+    impl.get.conn.stop()
+
+  var
     file = newFile impl.get.garage
     
   || impl.get.select(meta.key, file)
 
-  block:
+  block:      
     let
       download = meta.config.getOrDefault("download").getBool(false)
       redirectTarget = await impl.get.resolveRedirectFile(file[].key, download)
@@ -34,5 +40,8 @@ proc checkStatus*(ctx: Context) {.async.} =
 
   let
     (impl, meta, _) = await ctx.retrieve("check-status")
+
+  defer:
+    impl.get.conn.stop()
 
   ctx.send impl.get.status(meta.key)    
