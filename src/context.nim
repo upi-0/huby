@@ -6,7 +6,8 @@ import
   service/presigned/[general, types],
   service/file/main,
   service/owner/main,
-  webhook  
+  webhook,
+  db
 
 type
   IpUa* = tuple
@@ -122,29 +123,34 @@ proc retrieve*(ctx: Context; actionName: string, json = false) : Future[tuple[
   meta: MetaObj,
   hook: ServiceValue[WebhookConnection]
 ]] {.async.} =
-  block:
-    result.impl = await newFileService(1, ctx.getPathParams("garage_name"))
-    result.meta = block:
-      if not json: ctx.getMeta(result.impl.get.garage.owner.secret_access_key, actionName)
-      else: resolveJWT(ctx.getPathParams("jwt_val"), result.impl.get.garage.owner.secret_access_key).get()
-    result.hook = none(WebhookConnection, 0)
+  try:
+    block:
+      result.impl = await newFileService(1, ctx.getPathParams("garage_name"))
+      result.meta = block:
+        if not json: ctx.getMeta(result.impl.get.garage.owner.secret_access_key, actionName)
+        else: resolveJWT(ctx.getPathParams("jwt_val"), result.impl.get.garage.owner.secret_access_key).get()
+      result.hook = none(WebhookConnection, 0)
 
-  let
-    webhookConf = result.meta.config.getOrDefault("webhook")
-    useHook = webhookConf.getOrDefault("use").getBool(false)
-    requestOrigin = ctx.request.headers.table.getOrDefault("origin", @[""])
-
-  if useHook:
     let
-      endpoint = webhookConf.getOrDefault("endpoint").getStr("/webhook/huby")
-      origin = webhookConf.getOrDefault("origin").getStr requestOrigin[0]
+      webhookConf = result.meta.config.getOrDefault("webhook")
+      useHook = webhookConf.getOrDefault("use").getBool(false)
+      requestOrigin = ctx.request.headers.table.getOrDefault("origin", @[""])
 
-    if origin.len < 1:
-      ctx.abortExit(Http400, "Invalid origin while using webhook.")
+    if useHook:
+      let
+        endpoint = webhookConf.getOrDefault("endpoint").getStr("/webhook/huby")
+        origin = webhookConf.getOrDefault("origin").getStr requestOrigin[0]
 
-    result.hook = implement.some createWebhookConnection(
-      garageId = result.impl.get.garage.id,
-      garageKey = result.impl.get.garage.owner.secret_access_key,
-      origin = origin,
-      endpoint = endpoint
-    )
+      if origin.len < 1:
+        ctx.abortExit(Http400, "Invalid origin while using webhook.")
+
+      result.hook = implement.some createWebhookConnection(
+        garageId = result.impl.get.garage.id,
+        garageKey = result.impl.get.garage.owner.secret_access_key,
+        origin = origin,
+        endpoint = endpoint
+      )
+  
+  except:
+    result.impl.get.conn.stop()
+    raise getCurrentException()
