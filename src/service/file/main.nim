@@ -51,10 +51,11 @@ proc newFileService*(ownerId: int; grg: string) : Future[ServiceValue[FileServic
     gara = ownerId.getGarageByField("name", grg)
     db = await tryPopDb()
   
+  result = some newFileService(gara.get, db)
+
   if gara.isNone:
-    return result.none gara
-  
-  some newFileService(gara.get, db)
+    result.get.conn.stop()
+    result = result.none gara
 
 proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] {.deprecated: "2026-09-05".} =
   impl.conn.updateStorageUsed(impl.garage.owner, length, operator)
