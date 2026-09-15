@@ -31,7 +31,10 @@ proc acceptHead*(ctx: Context) {.async.} =
 
   var
     file: FileModel
-  
+
+  defer:
+    impl.get.conn.stop()
+
   let
     http = inheritHttpConnection()
     (hfs3, bucket, address) = get impl.get.getFileStorageConfig(body["key"].str, file)
