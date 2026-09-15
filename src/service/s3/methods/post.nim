@@ -1,26 +1,5 @@
 import ../base
-import
-  http/client, httpclient, tables
-
-template fetchInformationAfter(ms: int) =
-  sleepAsync(ms).addCallback(
-    proc() =
-      let request = http.client.request(
-        cfgRes.get.s3conf.presignHead(cfgRes.get.bucket, cfgRes.get.address),
-        httpMethod=HttpHead)      
-
-      request.addCallback(
-        proc(r: Future[AsyncResponse]) = 
-          if r.read.status[0 .. 2].parseInt < 300 and (not file.isdeleted):
-            file.size = r.read.headers.table["content-length"][0].parseInt() div 1024
-            file.isUploaded = true
-            file.is_size_sync = false
-
-            conn.update(file)
-
-          http.stop()  
-      )
-  )  
+import httpclient
 
 proc handleCreateMultipartUpload*(
     impl: FileService,
@@ -54,13 +33,8 @@ proc handleCompleteMultipartUpload*(
 
   var
     file = emptyFile()
-
-  let
     cfgRes = impl.getFileStorageConfig(key, file)
-    http = inheritHttpConnection()
 
-  fetchInformationAfter(10_000)
-  
   result = cfgRes.get.s3conf.presignCompleteMultipartUpload(
     cfgRes.get.bucket,
     cfgRes.get.address,
