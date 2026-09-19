@@ -78,7 +78,7 @@ proc writeDeliver*(impl: FileService; endpoints: seq[WebhookWriteDeliveryPayload
         "WITH inserted AS ($#)" % insertedQuery.replace(";"),
         "SELECT * FROM inserted",
         "UNION ALL",
-        "SELECT * FROM webhook.payloads WHERE signature = '$#'" % [$payload["signature"]],
+        "SELECT * FROM webhook.payloads WHERE signature = '$#'" % [payload["signature"].str],
         "LIMIT 1")  
 
     try:
