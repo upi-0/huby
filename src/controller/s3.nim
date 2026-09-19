@@ -161,7 +161,7 @@ proc s3handler*(ctx: Context) {.async.} =
     responseObj.status = 204
     responseObj.config.headers = match.toHeadersJson()
 
-    return ctx.send(%responseObj, Http204, formatJson = false)
+    return ctx.send(%responseObj, Http200, formatJson = false)
 
   of "POST":
     if hasUploads:
