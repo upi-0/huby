@@ -1,7 +1,7 @@
 import
   ../base,
   ../s3/garage,
-  endpoints
+  ./[endpoints, payloads]
 
 type
   WebhookDeliveries* {.
@@ -11,7 +11,7 @@ type
     endpoint*: WebhookEndpoints
     event*: string
     status_code*: string
-    payload*: string
+    payload*: WebhookPayloads
     delivered*: bool
     redeliver*: bool
 
@@ -23,9 +23,13 @@ proc newWebhookDelivery*(
   WebhookDeliveries(
     event: event,
     endpoint: new WebhookEndpoints,
+    payload: new WebhookPayloads,
     delivered: false
   )
 
 proc newWebhookDelivery*: WebhookDeliveries =
-  result = WebhookDeliveries(endpoint: newWebhookEndpoints())
+  result = WebhookDeliveries(
+    endpoint: newWebhookEndpoints(),
+    payload: newWebhookPayloads()
+  )
   result = result.setCreatedAt()

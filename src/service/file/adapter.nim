@@ -87,7 +87,7 @@ proc putFile*(
   var
     file = newFile(impl.garage)
     address = record.address
-    fileSize = contentLength div 1024
+    fileSize = contentLength
 
   if fileSize < 1:
     fileSize = 1    
@@ -108,10 +108,10 @@ proc putFile*(
       file.size = fileSize
       address = file.address
       file.is_size_sync = false
-      file.isUploaded = false
 
-    impl.conn.update(file, ["size", "is_size_sync", "isuploaded"])
-    s3conf = file.storage_repo.toS3Config()
+    block:
+      impl.conn.update(file, ["size", "is_size_sync"])
+      s3conf = file.storage_repo.toS3Config()
 
     return address.some()
 
