@@ -58,8 +58,11 @@ const sp = "  "
 proc flat*(s: string): string =
   s.replace("\n", " ").replace("  ", "")
 
-proc query*(statements: varargs[string]): string =
+proc scopeQuery*(statements: varargs[string]): string =
   result = statements.join("\n") & ";"
+
+proc query*(statements: varargs[string]): string =
+  result = scopeQuery(statements)
   let
     dap = now()
     waktu = "[$#:$#] " % [$dap.hour, $dap.minute]

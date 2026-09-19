@@ -44,18 +44,15 @@ proc newFileService*(garage: Garage; conn: DbConn) : FileService =
     garage: garage,
     conn: conn,
     query: FileQuery()
-  )    
+  )
 
 proc newFileService*(ownerId: int; grg: string) : Future[ServiceValue[FileService]] {.gcsafe, async.} =
-  let
-    gara = ownerId.getGarageByField("name", grg)
-    db = await tryPopDb()
-  
-  result = some newFileService(gara.get, db)
+  let gara = ownerId.getGarageByField("name", grg)
 
   if gara.isNone:
-    result.get.conn.stop()
     result = result.none gara
+
+  some newFileService(gara.get, await tryPopDb())
 
 proc updateStorageUsed*(impl: FileService; length: int; operator = "+") : ServiceValue[int] {.deprecated: "2026-09-05".} =
   impl.conn.updateStorageUsed(impl.garage.owner, length, operator)
@@ -101,7 +98,6 @@ proc listFiles*(impl: FileService; keyPrefix: string) : ServiceValue[seq[FileObj
 
 proc select*(impl: FileService; key: string; file: var FileModel) : ServiceValue[bool] =
   try:
-    echo "SELECT"
     file = emptyFile()
     impl.conn.select(file, impl.query.select % [key, $impl.garage.id])
     implement.some(true)

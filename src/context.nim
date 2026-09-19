@@ -19,11 +19,12 @@ proc json*(ctx: Context) =
   ctx.response.headers["Content-Type"] = @["application/json"]
 
 
-proc send*[T: string | JsonNode](ctx: Context; body: T, code = Http200) {.async.} =
+proc send*[T: string | JsonNode](ctx: Context; body: T, code = Http200, formatJson = true) {.async.} =
   var text: string
 
   when body is JsonNode:
     ctx.json()  
+    text = $body
 
   when body is string:
     text = body    
@@ -32,9 +33,7 @@ proc send*[T: string | JsonNode](ctx: Context; body: T, code = Http200) {.async.
     typeContent = ctx.response.headers.getTables()["content-type"][0]
     success = code.is2xx
 
-  echo typeContent  
-
-  if typeContent == "application/json":
+  if typeContent == "application/json" and formatJson:
     let illall = %*{
       "success": success,
       "data": {},
@@ -48,14 +47,14 @@ proc send*[T: string | JsonNode](ctx: Context; body: T, code = Http200) {.async.
 
     text = $body
 
-  ctx.response.body = ""
+  ctx.response.body = text
 
-  if not (ctx.request.reqMethod == HttpOptions):
-    ctx.response.body = text
+  if (ctx.request.reqMethod == HttpOptions):
+    ctx.response.body = ""
 
-  ctx.response.code = code
-
-  return
+  block:
+    ctx.response.code = code
+    echo "RESPONSE: " & text
 
 proc send*[T](ctx: Context; sv: ServiceValue[T]) {.async.} =
   let statusCode = HttpCode(sv.status)
