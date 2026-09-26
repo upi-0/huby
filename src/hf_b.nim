@@ -28,7 +28,12 @@ app.use @[
   noCors()
 ]
 
+proc buildInfo(ctx: Context) {.async.} =
+  # Embedded by Nim at compile time, not calculated when the request arrives.
+  resp "Compiled at: " & CompileDate & " " & CompileTime
+
 block setRoute:
+  app.addRoute("/", buildInfo, HttpGet)
   app.addRoute(
     accessUrls, "/.huby/storage")
   app.addRoute(
